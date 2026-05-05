@@ -2,16 +2,17 @@ package service
 
 import (
 	"context"
+	"sort"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	inventoryv1 "github.com/student/shared/pkg/proto/inventory/v1"
+	inventoryv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/inventory/v1"
 )
 
-// Part представляет деталь космического корабля
+// Part представляет деталь космического корабля.
 type Part struct {
 	UUID          string
 	Name          string
@@ -22,13 +23,13 @@ type Part struct {
 	CreatedAt     *timestamppb.Timestamp
 }
 
-// InventoryServer реализует gRPC сервис
+// InventoryServer реализует gRPC сервис.
 type InventoryServer struct {
 	inventoryv1.UnimplementedInventoryServiceServer
 	parts map[uuid.UUID]Part
 }
 
-// NewInventoryServer создаёт сервер с предзагруженными seed-данными
+// NewInventoryServer создаёт сервер с предзагруженными seed-данными.
 func NewInventoryServer() *InventoryServer {
 	now := timestamppb.Now()
 
@@ -88,44 +89,104 @@ func NewInventoryServer() *InventoryServer {
 				StockQuantity: 7,
 				CreatedAt:     now,
 			},
+			uuid.MustParse("550e8400-e29b-41d4-a716-446655440007"): {
+				UUID:          "550e8400-e29b-41d4-a716-446655440007",
+				Name:          "Корпус без наличия",
+				Description:   "Дорогой корпус, нет на складе",
+				Price:         2000000, // 20000₽ — как HullOutOfStockPrice в тестах
+				PartType:      inventoryv1.PartType_PART_TYPE_HULL,
+				StockQuantity: 0,
+				CreatedAt:     now,
+			},
 		},
 	}
 }
 
-// GetPart возвращает деталь по UUID
+// GetPart возвращает деталь по UUID.
 func (s *InventoryServer) GetPart(
 	ctx context.Context,
 	req *inventoryv1.GetPartRequest,
 ) (*inventoryv1.GetPartResponse, error) {
-	// TODO: Реализовать метод
-	// 1. Проверить, что uuid не пустой → INVALID_ARGUMENT
-	// 2. Валидировать формат UUID → INVALID_ARGUMENT
-	// 3. Найти деталь в map
-	// 4. Если не найдена → NOT_FOUND
-	// 5. Преобразовать в inventoryv1.Part
-	// 6. Вернуть деталь
+	if req.GetUuid() == "" {
+		return nil, status.Error(codes.InvalidArgument, "uuid не может быть пустым")
+	}
 
-	// TODO: Валидация формата UUID v4
-	// Можно использовать github.com/google/uuid:
-	// if _, err := uuid.Parse(req.GetUuid()); err != nil {
-	//     return nil, status.Errorf(codes.InvalidArgument, "неверный формат uuid: %s", req.GetUuid())
-	// }
+	if _, err := uuid.Parse(req.GetUuid()); err != nil {
+		return nil, status.Error(codes.InvalidArgument, "неверный формат uuid")
+	}
 
-	return nil, status.Error(codes.Unimplemented, "метод GetPart не реализован")
+	part, ok := s.parts[uuid.MustParse(req.GetUuid())]
+	if !ok {
+		return nil, status.Error(codes.NotFound, "деталь не найдена")
+	}
+
+	response := &inventoryv1.GetPartResponse{
+		Part: &inventoryv1.Part{
+			Uuid:          part.UUID,
+			Name:          part.Name,
+			Description:   part.Description,
+			Price:         part.Price,
+			PartType:      part.PartType,
+			StockQuantity: part.StockQuantity,
+			CreatedAt:     part.CreatedAt,
+		},
+	}
+
+	return response, nil
 }
 
-// ListParts возвращает список деталей с опциональной фильтрацией по типу
+// ListParts возвращает список деталей с опциональной фильтрацией по типу.
 func (s *InventoryServer) ListParts(
 	ctx context.Context,
 	req *inventoryv1.ListPartsRequest,
 ) (*inventoryv1.ListPartsResponse, error) {
-	// TODO: Реализовать метод
-	// 1. Если передан список uuids → найти детали по UUID (сохраняя порядок запроса)
-	//    - Проверить формат каждого UUID → INVALID_ARGUMENT
-	//    - Если хоть один UUID не найден → NOT_FOUND
-	// 2. Иначе если part_type == UNSPECIFIED → вернуть все детали
-	// 3. Иначе → фильтровать по типу
-	// 4. Отсортировать по имени (только для фильтрации по типу, не для uuids)
+	// 1) Если переданы uuids - работаем по ним
+	if len(req.GetUuids()) > 0 {
+		parts := make([]*inventoryv1.Part, 0, len(req.GetUuids()))
+		for _, idStr := range req.GetUuids() {
+			id, err := uuid.Parse(idStr)
+			if err != nil {
+				return nil, status.Error(codes.InvalidArgument, "неверный формат uuid")
+			}
+			p, ok := s.parts[id]
+			if !ok {
+				return nil, status.Error(codes.NotFound, "деталь не найдена")
+			}
+			parts = append(parts, &inventoryv1.Part{
+				Uuid:          p.UUID,
+				Name:          p.Name,
+				Description:   p.Description,
+				Price:         p.Price,
+				PartType:      p.PartType,
+				StockQuantity: p.StockQuantity,
+				CreatedAt:     p.CreatedAt,
+			})
+		}
+		return &inventoryv1.ListPartsResponse{Parts: parts}, nil
+	}
 
-	return nil, status.Error(codes.Unimplemented, "метод ListParts не реализован")
+	// 2) Иначе фильтруем по part_type (UNSPECIFIED = все)
+	partType := req.GetPartType()
+	parts := make([]*inventoryv1.Part, 0, len(s.parts))
+
+	for _, p := range s.parts {
+		if partType != inventoryv1.PartType_PART_TYPE_UNSPECIFIED && p.PartType != partType {
+			continue
+		}
+		parts = append(parts, &inventoryv1.Part{
+			Uuid:          p.UUID,
+			Name:          p.Name,
+			Description:   p.Description,
+			Price:         p.Price,
+			PartType:      p.PartType,
+			StockQuantity: p.StockQuantity,
+			CreatedAt:     p.CreatedAt,
+		})
+	}
+
+	sort.Slice(parts, func(i, j int) bool {
+		return parts[i].Name < parts[j].Name
+	})
+
+	return &inventoryv1.ListPartsResponse{Parts: parts}, nil
 }

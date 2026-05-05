@@ -1,6 +1,5 @@
-# TODO: Не забудь поменять имя модуля github.com/student на своё
-#       и обновить все импорты в коде!
-#       Также обнови prefix в команде format (gci) и в .golangci.yml
+# Локальные модули: github.com/Anton119/rocket-service-/{order,inventory,payment,shared}
+# При смене org/user обнови module в go.mod, импорты, prefix в format (gci) и .golangci.yml
 
 version: '3'
 
@@ -84,7 +83,7 @@ tasks:
       - find . -type f -name '*.go' ! -path '*/mocks/*' ! -path '*/pkg/proto/*' ! -path '*/pkg/openapi/*' -exec {{.GOFUMPT}} -extra -w {} +
       - echo '📦 Сортируем импорты через gci...'
       # TODO: Поменяй prefix на свой модуль
-      - find . -type f -name '*.go' ! -path '*/mocks/*' ! -path '*/pkg/proto/*' ! -path '*/pkg/openapi/*' -exec {{.GCI}} write -s standard -s default -s "prefix(github.com/Anton119/rocket-service-)" {} +
+      - find . -type f -name '*.go' ! -path '*/mocks/*' ! -path '*/pkg/proto/*' ! -path '*/pkg/openapi/*' -exec {{.GCI}} write -s standard -s default -s "prefix(github.com/Anton119/rocket-service-/)" {} +
 
   lint:
     desc: "Запускает golangci-lint"

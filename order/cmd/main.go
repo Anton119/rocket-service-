@@ -38,20 +38,27 @@ const (
 )
 
 func main() {
-	// TODO: Настроить gRPC клиент с параметрами keepalive
-	// Подумайте, какие параметры стоит задать для gRPC клиента
-	// См. examples/week_1/GRPC_CONNECTIONS.md
+	if err := run(); err != nil {
+		os.Exit(1) // тут уже можно: все defer внутри run уже отработали
+	}
+}
 
-	// Создать gRPC соединение с InventoryService
+func run() error {
 	inventoryConn, err := grpc.NewClient(inventoryServiceAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		slog.Error("не удалось подключиться к InventoryService", "error", err)
-		os.Exit(1)
+		return err
 	}
 	defer inventoryConn.Close()
 
-	// TODO: Создать gRPC клиент PaymentService
+	paymentConn, err := grpc.NewClient(paymentServiceAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		slog.Error("не удалось подключиться к PaymentService", "error", err)
+		return err
+	}
+	defer paymentConn.Close()
 
 	// Создаём хранилище и обработчик
 	store := orderHandler.NewOrderStore()
@@ -61,23 +68,16 @@ func main() {
 		store,
 	)
 
-	// TODO: Сгенерировать код ogen из OpenAPI спецификации
-	// Команда: task ogen:gen
-
 	// Создать OpenAPI сервер
 	orderServer, err := orderHandler.SetupServer(h)
 	if err != nil {
 		slog.Error("ошибка создания сервера OpenAPI", "error", err)
-		os.Exit(1)
+		return err
 	}
 
-	// TODO: Настроить HTTP сервер с таймаутами
-	// Подумайте, какие таймауты стоит задать для production-ready сервера
-	// См. examples/week_1/HTTP_SERVER.md
-
 	server := &http.Server{
-		Addr:              net.JoinHostPort("localhost".httpPort),
-		Handler:           h,
+		Addr:              net.JoinHostPort("localhost", httpPort),
+		Handler:           orderServer,
 		ReadHeaderTimeout: readHeaderTimeout, // Защита от Slowloris атаки
 		ReadTimeout:       readTimeout,       // Лимит на чтение всего запроса
 		WriteTimeout:      writeTimeout,      // Лимит на запись ответа
@@ -93,13 +93,6 @@ func main() {
 		}
 	}()
 
-	// TODO: Реализовать graceful shutdown для HTTP сервера
-	// При получении сигнала SIGINT/SIGTERM сервер должен:
-	// 1. Перестать принимать новые соединения
-	// 2. Дождаться завершения текущих запросов (с таймаутом)
-	// 3. Закрыть gRPC соединения
-	// 4. Корректно завершить работу
-	// Подсказка: используйте signal.Notify и httpServer.Shutdown(ctx)
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -113,12 +106,7 @@ func main() {
 	if err != nil {
 		slog.Error("❌ ошибка при остановке сервера", "error", err)
 	}
+	slog.Info("✅ сервер остановлен")
 
-	slog.Info("запуск OrderService", "port", 8080)
-
-	err = http.ListenAndServe(":8080", orderServer)
-	if err != nil {
-		slog.Error("ошибка запуска сервера", "error", err)
-		os.Exit(1)
-	}
+	return nil
 }
