@@ -4,6 +4,8 @@ package payment.v1;
 
 option go_package = "github.com/Anton119/rocket-service-/shared/pkg/proto/payment/v1;paymentv1";
 
+import "buf/validate/validate.proto";
+
 // PaymentService обрабатывает оплату заказов
 service PaymentService {
   // PayOrder — оплата заказа, в ответе transaction_uuid
@@ -27,9 +29,9 @@ enum PaymentMethod {
 // Запрос PayOrder
 message PayOrderRequest {
   // UUID заказа (обязательный)
-  string order_uuid = 1;
-  // способ оплаты (обязательный)
-  PaymentMethod payment_method = 2;
+  string order_uuid = 1 [(buf.validate.field).string.uuid = true];
+  // способ оплаты (обязательный, без UNSPECIFIED)
+  PaymentMethod payment_method = 2 [(buf.validate.field).enum = { not_in: [0] }];
 }
 
 // Ответ PayOrder

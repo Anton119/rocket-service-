@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	svc "github.com/Anton119/rocket-service-/inventory/pkg/service"
+	"github.com/Anton119/rocket-service-/shared/pkg/grpc/interceptor"
 	inventoryv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/inventory/v1"
 )
 
@@ -45,6 +46,12 @@ func run() error {
 		slog.Error("не удалось создать listener", "error", err)
 		return err
 	}
+	// прото валидация для gprc
+	pvUnary, err := interceptor.UnaryProtovalidateInterceptor()
+	if err != nil {
+		slog.Error("protovalidate", "error", err)
+		return err
+	}
 
 	grpcServer := grpc.NewServer(
 		grpc.KeepaliveParams(keepalive.ServerParameters{
@@ -58,6 +65,13 @@ func run() error {
 			MinTime:             grpcMinPingInterval,
 			PermitWithoutStream: true,
 		}),
+
+		// Интерцепторы: отлов паник, Protovalidate, логирование.
+		grpc.ChainUnaryInterceptor(
+			interceptor.RecoveryInterceptor(),
+			pvUnary,
+			interceptor.LoggerInterceptor(),
+		),
 	)
 	inventoryv1.RegisterInventoryServiceServer(grpcServer, svc.NewInventoryServer())
 

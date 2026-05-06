@@ -5,6 +5,8 @@ version: '3'
 
 vars:
   GO_VERSION: '1.26.0'
+  # Модули buf.build при прямом go-get с buf.build дают 403; тянуть через публичный прокси.
+  GOPROXY_MOD: 'https://proxy.golang.org,direct'
   GOLANGCI_LINT_VERSION: 'v2.11.2'
   GCI_VERSION: 'v0.14.0'
   GOFUMPT_VERSION: 'v0.9.2'
@@ -127,7 +129,12 @@ tasks:
       - echo '🔄 Синхронизируем go.work...'
       - go work sync
       - echo '🔄 Обновляем зависимости в модулях...'
-      - for mod in {{.MODULES}}; do (cd "$mod" && go mod tidy -compat={{.GO_VERSION}}); done
+      - for mod in {{.MODULES}}; do (cd "$mod" && GOPROXY={{.GOPROXY_MOD}} go mod tidy -compat={{.GO_VERSION}}); done
+
+  mod:tidy:
+    desc: "go mod tidy во всех модулях (обход 403 buf.build через proxy.golang.org)"
+    cmds:
+      - for mod in {{.MODULES}}; do (cd "$mod" && GOPROXY={{.GOPROXY_MOD}} go mod tidy -compat={{.GO_VERSION}}); done
 
   test:api:
     desc: "Запускает API-тесты"

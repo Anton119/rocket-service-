@@ -7,6 +7,7 @@
 package paymentv1
 
 import (
+	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -87,7 +88,7 @@ type PayOrderRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// UUID заказа (обязательный)
 	OrderUuid string `protobuf:"bytes,1,opt,name=order_uuid,json=orderUuid,proto3" json:"order_uuid,omitempty"`
-	// способ оплаты (обязательный)
+	// способ оплаты (обязательный, без UNSPECIFIED)
 	PaymentMethod PaymentMethod `protobuf:"varint,2,opt,name=payment_method,json=paymentMethod,proto3,enum=payment.v1.PaymentMethod" json:"payment_method,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -188,11 +189,11 @@ var File_payment_v1_payment_proto protoreflect.FileDescriptor
 const file_payment_v1_payment_proto_rawDesc = "" +
 	"\n" +
 	"\x18payment/v1/payment.proto\x12\n" +
-	"payment.v1\"r\n" +
-	"\x0fPayOrderRequest\x12\x1d\n" +
+	"payment.v1\x1a\x1bbuf/validate/validate.proto\"\x86\x01\n" +
+	"\x0fPayOrderRequest\x12'\n" +
 	"\n" +
-	"order_uuid\x18\x01 \x01(\tR\torderUuid\x12@\n" +
-	"\x0epayment_method\x18\x02 \x01(\x0e2\x19.payment.v1.PaymentMethodR\rpaymentMethod\"=\n" +
+	"order_uuid\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\torderUuid\x12J\n" +
+	"\x0epayment_method\x18\x02 \x01(\x0e2\x19.payment.v1.PaymentMethodB\b\xbaH\x05\x82\x01\x02 \x00R\rpaymentMethod\"=\n" +
 	"\x10PayOrderResponse\x12)\n" +
 	"\x10transaction_uuid\x18\x01 \x01(\tR\x0ftransactionUuid*\xa3\x01\n" +
 	"\rPaymentMethod\x12\x1e\n" +

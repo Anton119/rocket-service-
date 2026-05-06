@@ -7,6 +7,7 @@
 package inventoryv1
 
 import (
+	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -380,7 +381,7 @@ var File_inventory_v1_inventory_proto protoreflect.FileDescriptor
 
 const file_inventory_v1_inventory_proto_rawDesc = "" +
 	"\n" +
-	"\x1cinventory/v1/inventory.proto\x12\finventory.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xfd\x01\n" +
+	"\x1cinventory/v1/inventory.proto\x12\finventory.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xfd\x01\n" +
 	"\x04Part\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -389,14 +390,15 @@ const file_inventory_v1_inventory_proto_rawDesc = "" +
 	"\tpart_type\x18\x05 \x01(\x0e2\x16.inventory.v1.PartTypeR\bpartType\x12%\n" +
 	"\x0estock_quantity\x18\x06 \x01(\x03R\rstockQuantity\x129\n" +
 	"\n" +
-	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"$\n" +
-	"\x0eGetPartRequest\x12\x12\n" +
-	"\x04uuid\x18\x01 \x01(\tR\x04uuid\"9\n" +
+	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\".\n" +
+	"\x0eGetPartRequest\x12\x1c\n" +
+	"\x04uuid\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x04uuid\"9\n" +
 	"\x0fGetPartResponse\x12&\n" +
-	"\x04part\x18\x01 \x01(\v2\x12.inventory.v1.PartR\x04part\"]\n" +
+	"\x04part\x18\x01 \x01(\v2\x12.inventory.v1.PartR\x04part\"l\n" +
 	"\x10ListPartsRequest\x123\n" +
-	"\tpart_type\x18\x01 \x01(\x0e2\x16.inventory.v1.PartTypeR\bpartType\x12\x14\n" +
-	"\x05uuids\x18\x02 \x03(\tR\x05uuids\"=\n" +
+	"\tpart_type\x18\x01 \x01(\x0e2\x16.inventory.v1.PartTypeR\bpartType\x12#\n" +
+	"\x05uuids\x18\x02 \x03(\tB\r\xbaH\n" +
+	"\x92\x01\a\"\x05r\x03\xb0\x01\x01R\x05uuids\"=\n" +
 	"\x11ListPartsResponse\x12(\n" +
 	"\x05parts\x18\x01 \x03(\v2\x12.inventory.v1.PartR\x05parts*{\n" +
 	"\bPartType\x12\x19\n" +

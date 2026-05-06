@@ -4,6 +4,7 @@ package inventory.v1;
 
 option go_package = "github.com/Anton119/rocket-service-/shared/pkg/proto/inventory/v1;inventoryv1";
 
+import "buf/validate/validate.proto";
 import "google/protobuf/timestamp.proto";
 
 // InventoryService управляет каталогом деталей для космических кораблей
@@ -56,7 +57,7 @@ message Part {
 // Запрос GetPart
 message GetPartRequest {
   // UUID детали
-  string uuid = 1;
+  string uuid = 1 [(buf.validate.field).string.uuid = true];
 }
 
 // Ответ GetPart
@@ -70,7 +71,7 @@ message ListPartsRequest {
   // Фильтр по типу
   PartType part_type = 1;
   // Список UUID
-  repeated string uuids = 2;
+  repeated string uuids = 2 [(buf.validate.field).repeated.items.string.uuid = true];
 }
 
 // Ответ ListParts

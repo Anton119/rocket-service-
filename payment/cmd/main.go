@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	svc "github.com/Anton119/rocket-service-/payment/pkg/service"
+	"github.com/Anton119/rocket-service-/shared/pkg/grpc/interceptor"
 	paymentv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/payment/v1"
 )
 
@@ -45,6 +46,12 @@ func run() error {
 		return err
 	}
 
+	pvUnary, err := interceptor.UnaryProtovalidateInterceptor()
+	if err != nil {
+		slog.Error("protovalidate", "error", err)
+		return err
+	}
+
 	grpcServer := grpc.NewServer(
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			MaxConnectionIdle:     grpcMaxConnectionIdle,
@@ -57,6 +64,13 @@ func run() error {
 			MinTime:             grpcMinPingInterval,
 			PermitWithoutStream: true,
 		}),
+
+		// Интерцепторы: отлов паник, Protovalidate, логирование.
+		grpc.ChainUnaryInterceptor(
+			interceptor.RecoveryInterceptor(),
+			pvUnary,
+			interceptor.LoggerInterceptor(),
+		),
 	)
 	paymentv1.RegisterPaymentServiceServer(grpcServer, &svc.PaymentServer{})
 

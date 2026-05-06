@@ -22,6 +22,7 @@ import (
 	orderHandler "github.com/Anton119/rocket-service-/order/pkg/handler"
 	"github.com/Anton119/rocket-service-/order/tests/testutil"
 	paySvc "github.com/Anton119/rocket-service-/payment/pkg/service"
+	"github.com/Anton119/rocket-service-/shared/pkg/grpc/interceptor"
 	inventoryv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/inventory/v1"
 	paymentv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/payment/v1"
 )
@@ -73,9 +74,19 @@ func orderBaseURL() string {
 
 // TestMain запускает все сервисы перед тестами и останавливает после.
 func TestMain(m *testing.M) {
+	pvUnary, err := interceptor.UnaryProtovalidateInterceptor()
+	if err != nil {
+		panic(err)
+	}
+	unaryChain := grpc.ChainUnaryInterceptor(
+		interceptor.RecoveryInterceptor(),
+		pvUnary,
+		interceptor.LoggerInterceptor(),
+	)
+
 	// 1. Inventory gRPC через bufconn
 	invLis = bufconn.Listen(bufSize)
-	invGRPCServer := grpc.NewServer()
+	invGRPCServer := grpc.NewServer(unaryChain)
 	inventoryv1.RegisterInventoryServiceServer(invGRPCServer, invSvc.NewInventoryServer())
 	go func() {
 		if invServeErr := invGRPCServer.Serve(invLis); invServeErr != nil {
@@ -94,7 +105,7 @@ func TestMain(m *testing.M) {
 
 	// 2. Payment gRPC через bufconn
 	payLis = bufconn.Listen(bufSize)
-	payGRPCServer := grpc.NewServer()
+	payGRPCServer := grpc.NewServer(unaryChain)
 	paymentv1.RegisterPaymentServiceServer(payGRPCServer, &paySvc.PaymentServer{})
 	go func() {
 		if payServeErr := payGRPCServer.Serve(payLis); payServeErr != nil {
