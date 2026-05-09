@@ -1,18 +1,28 @@
-// TODO: Поменяй имя модуля github.com/student/week_1 на своё и обнови все импорты
-module github.com/student/payment
+module github.com/Anton119/rocket-service-/payment
 
 go 1.26.0
 
-require google.golang.org/grpc v1.79.2
+require (
+	github.com/Anton119/rocket-service-/shared v0.0.0-00010101000000-000000000000
+	github.com/google/uuid v1.6.0
+	google.golang.org/grpc v1.79.2
+)
 
 require (
-	go.opentelemetry.io/otel v1.42.0 // indirect
-	go.opentelemetry.io/otel/sdk/metric v1.42.0 // indirect
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260415201107-50325440f8f2.1 // indirect
+	buf.build/go/protovalidate v1.2.0 // indirect
+	cel.dev/expr v0.25.1 // indirect
+	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
+	github.com/google/cel-go v0.28.0 // indirect
+	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.3 // indirect
+	go.opentelemetry.io/otel/sdk v1.42.0 // indirect
+	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa // indirect
 	golang.org/x/net v0.51.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20251202230838-ff82c1b0f217 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260226221140-a57be14db171 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
 
-replace github.com/student/shared => ./../shared
+replace github.com/Anton119/rocket-service-/shared => ./../shared

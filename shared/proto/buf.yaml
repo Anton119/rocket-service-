@@ -9,3 +9,5 @@ lint:
     - COMMENT_ONEOF
     - COMMENT_RPC
     - COMMENT_SERVICE
+  ignore:
+    - buf 

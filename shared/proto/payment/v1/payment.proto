@@ -2,29 +2,40 @@ syntax = "proto3";
 
 package payment.v1;
 
-// TODO: Заменить на актуальный go_package
-option go_package = "github.com/student/shared/pkg/proto/payment/v1;paymentv1";
+option go_package = "github.com/Anton119/rocket-service-/shared/pkg/proto/payment/v1;paymentv1";
+
+import "buf/validate/validate.proto";
 
 // PaymentService обрабатывает оплату заказов
 service PaymentService {
-  // PayOrder обрабатывает оплату заказа
+  // PayOrder — оплата заказа, в ответе transaction_uuid
   rpc PayOrder(PayOrderRequest) returns (PayOrderResponse);
 }
 
 // Способ оплаты
 enum PaymentMethod {
+  // не указан
   PAYMENT_METHOD_UNSPECIFIED = 0;
+  // банковская карта
   PAYMENT_METHOD_CARD = 1;
+  // СБП
   PAYMENT_METHOD_SBP = 2;
-  // TODO: Добавить остальные способы оплаты из описания задания
+  // кредитная карта
+  PAYMENT_METHOD_CREDIT_CARD = 3;
+  // деньги инвестора
+  PAYMENT_METHOD_INVESTOR_MONEY = 4;
 }
 
-// Запрос на оплату заказа
+// Запрос PayOrder
 message PayOrderRequest {
-  // UUID заказа
-  string order_uuid = 1;
-
-  // TODO: Добавить остальные поля из описания задания
+  // UUID заказа (обязательный)
+  string order_uuid = 1 [(buf.validate.field).string.uuid = true];
+  // способ оплаты (обязательный, без UNSPECIFIED)
+  PaymentMethod payment_method = 2 [(buf.validate.field).enum = { not_in: [0] }];
 }
 
-// TODO: Реализовать PayOrderResponse
+// Ответ PayOrder
+message PayOrderResponse {
+  // UUID транзакции оплаты
+  string transaction_uuid = 1;
+}
