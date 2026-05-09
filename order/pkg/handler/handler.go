@@ -15,6 +15,13 @@ import (
 	paymentv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/payment/v1"
 )
 
+const (
+	// Ограничение времени на gRPC ListParts (inventory): не держим HTTP-запрос бесконечно.
+	inventoryListPartsTimeout = 5 * time.Second
+	// Ограничение времени на gRPC PayOrder (payment): внешний контур оплаты может быть медленнее каталога.
+	paymentPayOrderTimeout = 10 * time.Second
+)
+
 // Order представляет заказ на постройку космического корабля.
 type Order struct {
 	OrderUUID       uuid.UUID
@@ -134,7 +141,9 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 		uuids = append(uuids, weapon.String())
 	}
 
-	listResp, err := h.inventoryClient.ListParts(ctx, &inventoryv1.ListPartsRequest{
+	invCtx, invCancel := context.WithTimeout(ctx, inventoryListPartsTimeout)
+	defer invCancel()
+	listResp, err := h.inventoryClient.ListParts(invCtx, &inventoryv1.ListPartsRequest{
 		Uuids: uuids,
 	})
 	// обработка вариаций ошибок после grpc вызова
@@ -227,40 +236,88 @@ func toProtoPaymentMethod(m orderv1.PaymentMethod) (paymentv1.PaymentMethod, boo
 	}
 }
 
-func (h *OrderHandler) PayOrder(
-	ctx context.Context,
-	req *orderv1.PayOrderRequest,
-	params orderv1.PayOrderParams,
-) (orderv1.PayOrderRes, error) {
-	// Первая секция: читаем заказ из store под mutex и проверяем допустимость оплаты по статусу.
+// payOrderPrecheck проверяет, что заказ существует и его можно оплатить (PENDING_PAYMENT).
+// Возвращает nil, если можно вызывать payment; иначе готовый HTTP-ответ (404/409).
+func (h *OrderHandler) payOrderPrecheck(orderUUID uuid.UUID) orderv1.PayOrderRes {
 	h.store.mu.Lock()
-	order, exists := h.store.orders[params.OrderUUID]
+	order, exists := h.store.orders[orderUUID]
 	if !exists {
 		h.store.mu.Unlock()
 		return &orderv1.PayOrderNotFound{
 			Code:    http.StatusNotFound,
 			Message: "заказ не найден",
-		}, nil
+		}
 	}
 
-	// Оплата разрешена только в PENDING_PAYMENT; иначе возвращаем конфликт жизненного цикла.
 	switch order.Status {
 	case "PAID", "CANCELLED":
 		h.store.mu.Unlock()
 		return &orderv1.PayOrderConflict{
 			Code:    http.StatusConflict,
 			Message: "оплата невозможна в текущем статусе",
-		}, nil
+		}
 	case "PENDING_PAYMENT":
-		// Статус ожидает оплаты — продолжаем.
+		// Можно продолжать.
 	default:
 		h.store.mu.Unlock()
 		return &orderv1.PayOrderConflict{
 			Code:    http.StatusConflict,
 			Message: "оплата невозможна в текущем статусе",
-		}, nil
+		}
 	}
 	h.store.mu.Unlock()
+	return nil
+}
+
+// payOrderFinalizeAfterRPC выставляет PAID и поля оплаты, если статус ещё PENDING_PAYMENT.
+func (h *OrderHandler) payOrderFinalizeAfterRPC(
+	params orderv1.PayOrderParams,
+	txID uuid.UUID,
+	methodStr string,
+) orderv1.PayOrderRes {
+	h.store.mu.Lock()
+	stored, stillExists := h.store.orders[params.OrderUUID]
+	if !stillExists {
+		h.store.mu.Unlock()
+		return &orderv1.PayOrderNotFound{
+			Code:    http.StatusNotFound,
+			Message: "заказ не найден",
+		}
+	}
+	switch stored.Status {
+	case "PENDING_PAYMENT":
+		stored.Status = "PAID"
+		stored.TransactionUUID = &txID
+		stored.PaymentMethod = &methodStr
+		h.store.orders[params.OrderUUID] = stored
+	case "PAID", "CANCELLED":
+		h.store.mu.Unlock()
+		return &orderv1.PayOrderConflict{
+			Code:    http.StatusConflict,
+			Message: "оплата невозможна в текущем статусе",
+		}
+	default:
+		h.store.mu.Unlock()
+		return &orderv1.PayOrderConflict{
+			Code:    http.StatusConflict,
+			Message: "оплата невозможна в текущем статусе",
+		}
+	}
+	h.store.mu.Unlock()
+
+	out := orderv1.PayOrderResponse{}
+	out.SetTransactionUUID(txID)
+	return &out
+}
+
+func (h *OrderHandler) PayOrder(
+	ctx context.Context,
+	req *orderv1.PayOrderRequest,
+	params orderv1.PayOrderParams,
+) (orderv1.PayOrderRes, error) {
+	if early := h.payOrderPrecheck(params.OrderUUID); early != nil {
+		return early, nil
+	}
 
 	// Приводим payment_method из HTTP к protobuf enum для вызова payment‑сервиса.
 	pm, ok := toProtoPaymentMethod(req.GetPaymentMethod())
@@ -275,7 +332,9 @@ func (h *OrderHandler) PayOrder(
 	orderUUID := params.OrderUUID.String()
 
 	// Вызываем payment‑микросервис: списание/фиксация платежа в его контуре.
-	payResp, err := h.paymentClient.PayOrder(ctx, &paymentv1.PayOrderRequest{
+	payCtx, payCancel := context.WithTimeout(ctx, paymentPayOrderTimeout)
+	defer payCancel()
+	payResp, err := h.paymentClient.PayOrder(payCtx, &paymentv1.PayOrderRequest{
 		OrderUuid:     orderUUID,
 		PaymentMethod: pm,
 	})
@@ -300,42 +359,7 @@ func (h *OrderHandler) PayOrder(
 	// Сохраняем метод оплаты в том виде, как пришёл в HTTP.
 	methodStr := string(req.GetPaymentMethod())
 
-	// Вторая секция: после успешного RPC перепроверяем заказ и атомарно переводим в PAID.
-	h.store.mu.Lock()
-	stored, stillExists := h.store.orders[params.OrderUUID]
-	if !stillExists {
-		h.store.mu.Unlock()
-		return &orderv1.PayOrderNotFound{
-			Code:    http.StatusNotFound,
-			Message: "заказ не найден",
-		}, nil
-	}
-	// Пока выполнялся payment, параллельный запрос мог сменить статус — защищаемся от гонки.
-	switch stored.Status {
-	case "PENDING_PAYMENT":
-		stored.Status = "PAID"
-		stored.TransactionUUID = &txID
-		stored.PaymentMethod = &methodStr
-		h.store.orders[params.OrderUUID] = stored
-	case "PAID", "CANCELLED":
-		h.store.mu.Unlock()
-		return &orderv1.PayOrderConflict{
-			Code:    http.StatusConflict,
-			Message: "оплата невозможна в текущем статусе",
-		}, nil
-	default:
-		h.store.mu.Unlock()
-		return &orderv1.PayOrderConflict{
-			Code:    http.StatusConflict,
-			Message: "оплата невозможна в текущем статусе",
-		}, nil
-	}
-	h.store.mu.Unlock()
-
-	// Успешный ответ OpenAPI: отдаём transaction_uuid клиенту.
-	out := orderv1.PayOrderResponse{}
-	out.SetTransactionUUID(txID)
-	return &out, nil
+	return h.payOrderFinalizeAfterRPC(params, txID, methodStr), nil
 }
 
 func (h *OrderHandler) CancelOrder(ctx context.Context, params orderv1.CancelOrderParams) (orderv1.CancelOrderRes, error) {

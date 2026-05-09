@@ -88,6 +88,7 @@ func run() error {
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(quit)
 
 	select {
 	case sig := <-quit:
@@ -100,6 +101,7 @@ func run() error {
 		}()
 
 		timer := time.NewTimer(shutdownTimeout)
+		defer timer.Stop()
 		select {
 		case <-stopped:
 			slog.Info("✅ сервер остановлен")
@@ -107,7 +109,6 @@ func run() error {
 			slog.Warn("⏳ graceful shutdown timeout, forcing stop")
 			grpcServer.Stop()
 		}
-		timer.Stop()
 
 		if serveErr := <-serveErrCh; serveErr != nil {
 			slog.Error("ошибка работы сервера", "error", serveErr)
