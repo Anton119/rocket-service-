@@ -13,7 +13,9 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 
-	svc "github.com/Anton119/rocket-service-/inventory/pkg/service"
+	invapi "github.com/Anton119/rocket-service-/inventory/internal/api/inventory/v1"
+	partrepo "github.com/Anton119/rocket-service-/inventory/internal/repository/part"
+	partsvc "github.com/Anton119/rocket-service-/inventory/internal/service/part"
 	"github.com/Anton119/rocket-service-/shared/pkg/grpc/interceptor"
 	inventoryv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/inventory/v1"
 )
@@ -73,7 +75,10 @@ func run() error {
 			interceptor.LoggerInterceptor(),
 		),
 	)
-	inventoryv1.RegisterInventoryServiceServer(grpcServer, svc.NewInventoryServer())
+	repo := partrepo.NewRepository(partrepo.SeedParts())
+	catalog := partsvc.NewService(repo)
+	api := invapi.NewAPI(catalog)
+	inventoryv1.RegisterInventoryServiceServer(grpcServer, api)
 
 	// Включаем reflection для postman/grpcurl
 	reflection.Register(grpcServer)

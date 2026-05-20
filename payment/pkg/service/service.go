@@ -1,44 +1,15 @@
 package service
 
 import (
-	"context"
-	"log/slog"
-
-	"github.com/google/uuid"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
+	payapi "github.com/Anton119/rocket-service-/payment/internal/api/payment/v1"
+	paymentsvc "github.com/Anton119/rocket-service-/payment/internal/service/payment"
 	paymentv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/payment/v1"
 )
 
-// PaymentServer реализует gRPC сервис оплаты.
-type PaymentServer struct {
-	paymentv1.UnimplementedPaymentServiceServer
-}
+// NewPaymentServer собирает gRPC PaymentService.
+// Пакет pkg нужен модулям вроде order/tests, которые не могут импортировать payment/internal.
+func NewPaymentServer() paymentv1.PaymentServiceServer {
+	svc := paymentsvc.NewService()
 
-// PayOrder обрабатывает оплату заказа.
-func (s *PaymentServer) PayOrder(
-	ctx context.Context,
-	req *paymentv1.PayOrderRequest,
-) (*paymentv1.PayOrderResponse, error) {
-	if req.GetOrderUuid() == "" {
-		return nil, status.Error(codes.InvalidArgument, "uuid не может быть пустым")
-	}
-
-	if req.GetPaymentMethod() == paymentv1.PaymentMethod_PAYMENT_METHOD_UNSPECIFIED {
-		return nil, status.Error(codes.InvalidArgument, "payment_method не указан")
-	}
-
-	if _, err := uuid.Parse(req.GetOrderUuid()); err != nil {
-		return nil, status.Error(codes.InvalidArgument, "неверный формат uuid")
-	}
-
-	transactionUUID := uuid.NewString()
-
-	slog.InfoContext(ctx, "оплата прошла успешно",
-		"order_uuid", req.GetOrderUuid(),
-		"transaction_uuid", transactionUUID,
-	)
-
-	return &paymentv1.PayOrderResponse{TransactionUuid: transactionUUID}, nil
+	return payapi.NewAPI(svc)
 }

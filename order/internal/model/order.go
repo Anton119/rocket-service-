@@ -1,0 +1,30 @@
+package model
+
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
+
+// OrderStatus — статус заказа в доменной модели (строки совпадают с OpenAPI enum).
+type OrderStatus string
+
+const (
+	OrderStatusPendingPayment OrderStatus = "PENDING_PAYMENT"
+	OrderStatusPaid           OrderStatus = "PAID"
+	OrderStatusCancelled      OrderStatus = "CANCELLED"
+)
+
+// Order — заказ на постройку космического корабля.
+type Order struct {
+	OrderUUID       uuid.UUID
+	HullUUID        uuid.UUID
+	EngineUUID      uuid.UUID
+	ShieldUUID      *uuid.UUID
+	WeaponUUID      *uuid.UUID
+	TotalPrice      int64
+	TransactionUUID *uuid.UUID
+	PaymentMethod   *string
+	Status          OrderStatus
+	CreatedAt       time.Time
+}

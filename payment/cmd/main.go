@@ -13,7 +13,8 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 
-	svc "github.com/Anton119/rocket-service-/payment/pkg/service"
+	payapi "github.com/Anton119/rocket-service-/payment/internal/api/payment/v1"
+	paymentsvc "github.com/Anton119/rocket-service-/payment/internal/service/payment"
 	"github.com/Anton119/rocket-service-/shared/pkg/grpc/interceptor"
 	paymentv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/payment/v1"
 )
@@ -72,7 +73,9 @@ func run() error {
 			interceptor.LoggerInterceptor(),
 		),
 	)
-	paymentv1.RegisterPaymentServiceServer(grpcServer, &svc.PaymentServer{})
+	svc := paymentsvc.NewService()
+	api := payapi.NewAPI(svc)
+	paymentv1.RegisterPaymentServiceServer(grpcServer, api)
 
 	// Включаем reflection для postman/grpcurl
 	reflection.Register(grpcServer)

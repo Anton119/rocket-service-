@@ -14,7 +14,11 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	orderHandler "github.com/Anton119/rocket-service-/order/pkg/handler"
+	orderapi "github.com/Anton119/rocket-service-/order/internal/api/order/v1"
+	inventorygrpc "github.com/Anton119/rocket-service-/order/internal/client/grpc/inventory/v1"
+	paymentgrpc "github.com/Anton119/rocket-service-/order/internal/client/grpc/payment/v1"
+	orderrepo "github.com/Anton119/rocket-service-/order/internal/repository/order"
+	ordersvc "github.com/Anton119/rocket-service-/order/internal/service/order"
 	inventoryv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/inventory/v1"
 	paymentv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/payment/v1"
 )
@@ -60,16 +64,13 @@ func run() error {
 	}
 	defer paymentConn.Close()
 
-	// Создаём хранилище и обработчик
-	store := orderHandler.NewOrderStore()
-	h := orderHandler.NewOrderHandler(
-		inventoryv1.NewInventoryServiceClient(inventoryConn),
-		paymentv1.NewPaymentServiceClient(paymentConn),
-		store,
-	)
+	repo := orderrepo.NewRepository()
+	inv := inventorygrpc.NewClient(inventoryv1.NewInventoryServiceClient(inventoryConn))
+	pay := paymentgrpc.NewClient(paymentv1.NewPaymentServiceClient(paymentConn))
+	svc := ordersvc.NewService(repo, inv, pay)
+	api := orderapi.NewAPI(svc)
 
-	// Создать OpenAPI сервер
-	orderServer, err := orderHandler.SetupServer(h)
+	orderServer, err := orderapi.NewServer(api)
 	if err != nil {
 		slog.Error("ошибка создания сервера OpenAPI", "error", err)
 		return err
