@@ -146,7 +146,7 @@ tasks:
   test:api:
     desc: "Запускает API-тесты"
     cmds:
-      - go test -v ./order/tests/...
+      - (cd order && go test -v -count=1 ./tests/...)
 
   mockery:install:
     desc: "Устанавливает mockery"
