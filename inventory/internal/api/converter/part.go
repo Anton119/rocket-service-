@@ -1,19 +1,13 @@
 package converter
 
 import (
-	"errors"
-
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	errs "github.com/Anton119/rocket-service-/inventory/internal/errors"
 	"github.com/Anton119/rocket-service-/inventory/internal/model"
 	"github.com/Anton119/rocket-service-/inventory/internal/service/input"
 	inventoryv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/inventory/v1"
-)
-
-var (
-	errEmptyUUID   = errors.New("uuid не может быть пустым")
-	errInvalidUUID = errors.New("неверный формат uuid")
 )
 
 // ListPartsInputFromRequest собирает вход use case из rpc ListParts.
@@ -29,7 +23,7 @@ func ListPartsInputFromRequest(req *inventoryv1.ListPartsRequest) (input.ListPar
 	for _, idStr := range req.GetUuids() {
 		id, err := uuid.Parse(idStr)
 		if err != nil {
-			return input.ListPartsInput{}, errInvalidUUID
+			return input.ListPartsInput{}, errs.ErrInvalidUUID
 		}
 		ids = append(ids, id)
 	}
@@ -41,19 +35,14 @@ func ListPartsInputFromRequest(req *inventoryv1.ListPartsRequest) (input.ListPar
 // ParsePartUUID разбирает строковый UUID из rpc GetPart.
 func ParsePartUUID(s string) (uuid.UUID, error) {
 	if s == "" {
-		return uuid.Nil, errEmptyUUID
+		return uuid.Nil, errs.ErrEmptyUUID
 	}
 	id, err := uuid.Parse(s)
 	if err != nil {
-		return uuid.Nil, errInvalidUUID
+		return uuid.Nil, errs.ErrInvalidUUID
 	}
 
 	return id, nil
-}
-
-// IsInvalidUUID возвращает true, если err — ошибка разбора UUID в конвертере.
-func IsInvalidUUID(err error) bool {
-	return errors.Is(err, errInvalidUUID) || errors.Is(err, errEmptyUUID)
 }
 
 // PartToProto переводит доменную модель в protobuf Part.

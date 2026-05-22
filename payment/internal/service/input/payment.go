@@ -11,8 +11,3 @@ type PayOrderInput struct {
 	OrderUUID uuid.UUID
 	Method    model.PaymentMethod
 }
-
-// PayOrderResult — результат оплаты.
-type PayOrderResult struct {
-	TransactionUUID uuid.UUID
-}

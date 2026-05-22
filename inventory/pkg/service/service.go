@@ -8,7 +8,6 @@ import (
 )
 
 // NewInventoryServer собирает gRPC InventoryService с seed-каталогом.
-// Пакет pkg нужен модулям вроде order/tests, которые не могут импортировать inventory/internal.
 func NewInventoryServer() inventoryv1.InventoryServiceServer {
 	repo := partrepo.NewRepository(partrepo.SeedParts())
 	svc := partsvc.NewService(repo)

@@ -66,11 +66,10 @@ func TestPayOrder(t *testing.T) {
 				},
 			},
 			setupMock: func(repo *mocks.OrderRepository, pay *mocks.PaymentClient) {
-				repo.EXPECT().Get(ctx, orderUUID).Return(pendingOrder, nil).Once()
+				repo.EXPECT().Get(ctx, orderUUID).Return(pendingOrder, nil)
 				pay.EXPECT().
 					PayOrder(ctx, orderUUID.String(), model.PaymentMethodCard).
 					Return(txUUID, nil)
-				repo.EXPECT().Get(ctx, orderUUID).Return(pendingOrder, nil).Once()
 				repo.EXPECT().
 					Save(ctx, mock.MatchedBy(func(o model.Order) bool {
 						return o.OrderUUID == orderUUID &&

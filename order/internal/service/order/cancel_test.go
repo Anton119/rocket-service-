@@ -41,6 +41,15 @@ func TestCancelOrder(t *testing.T) {
 			Status:     model.OrderStatusPaid,
 			CreatedAt:  pendingOrder.CreatedAt,
 		}
+
+		cancelledOrder = model.Order{
+			OrderUUID:  orderUUID,
+			HullUUID:   pendingOrder.HullUUID,
+			EngineUUID: pendingOrder.EngineUUID,
+			TotalPrice: 800_000,
+			Status:     model.OrderStatusCancelled,
+			CreatedAt:  pendingOrder.CreatedAt,
+		}
 	)
 
 	tests := []struct {
@@ -76,7 +85,16 @@ func TestCancelOrder(t *testing.T) {
 					Get(ctx, orderUUID).
 					Return(paidOrder, nil)
 			},
-			expected: expected{err: errs.ErrOrderCancelNotAllowed},
+			expected: expected{err: errs.ErrOrderAlreadyPaid},
+		},
+		{
+			name: "повторная отмена заказа",
+			setupMock: func(repo *mocks.OrderRepository) {
+				repo.EXPECT().
+					Get(ctx, orderUUID).
+					Return(cancelledOrder, nil)
+			},
+			expected: expected{err: errs.ErrOrderAlreadyCancelled},
 		},
 	}
 

@@ -45,7 +45,7 @@ func TestPayOrder(t *testing.T) {
 					PayOrder(ctx, mock.MatchedBy(func(in input.PayOrderInput) bool {
 						return in.OrderUUID == orderUUID && in.Method == model.PaymentMethodCard
 					})).
-					Return(&input.PayOrderResult{TransactionUUID: txUUID}, nil)
+					Return(txUUID, nil)
 			},
 		},
 		{

@@ -16,8 +16,8 @@ import (
 func (a *API) ListParts(ctx context.Context, req *inventoryv1.ListPartsRequest) (*inventoryv1.ListPartsResponse, error) {
 	in, err := apiconv.ListPartsInputFromRequest(req)
 	if err != nil {
-		if apiconv.IsInvalidUUID(err) {
-			return nil, status.Error(codes.InvalidArgument, "неверный формат uuid")
+		if errs.IsInvalidUUID(err) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 
 		return nil, err
@@ -26,7 +26,7 @@ func (a *API) ListParts(ctx context.Context, req *inventoryv1.ListPartsRequest) 
 	items, err := a.svc.ListParts(ctx, in)
 	if err != nil {
 		if errors.Is(err, errs.ErrPartNotFound) {
-			return nil, status.Error(codes.NotFound, "деталь не найдена")
+			return nil, status.Error(codes.NotFound, errs.ErrPartNotFound.Error())
 		}
 
 		return nil, err

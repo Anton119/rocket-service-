@@ -10,7 +10,7 @@ import (
 )
 
 // PayOrder проводит оплату и возвращает идентификатор транзакции.
-func (s *Service) PayOrder(ctx context.Context, in input.PayOrderInput) (*input.PayOrderResult, error) {
+func (s *Service) PayOrder(ctx context.Context, in input.PayOrderInput) (uuid.UUID, error) {
 	transactionUUID := uuid.New()
 
 	slog.InfoContext(ctx, "оплата прошла успешно",
@@ -18,7 +18,5 @@ func (s *Service) PayOrder(ctx context.Context, in input.PayOrderInput) (*input.
 		"transaction_uuid", transactionUUID.String(),
 	)
 
-	return &input.PayOrderResult{
-		TransactionUUID: transactionUUID,
-	}, nil
+	return transactionUUID, nil
 }

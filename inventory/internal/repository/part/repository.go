@@ -2,6 +2,7 @@ package part
 
 import (
 	"context"
+	"sync"
 
 	"github.com/google/uuid"
 
@@ -11,8 +12,9 @@ import (
 	"github.com/Anton119/rocket-service-/inventory/internal/repository/record"
 )
 
-// Repository хранит детали в памяти.
+// Repository — потокобезопасное in-memory хранилище деталей.
 type Repository struct {
+	mu    sync.RWMutex
 	parts map[uuid.UUID]record.Part
 }
 
@@ -28,6 +30,9 @@ func NewRepository(parts map[uuid.UUID]model.Part) *Repository {
 }
 
 func (r *Repository) Get(_ context.Context, id uuid.UUID) (model.Part, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
 	p, ok := r.parts[id]
 	if !ok {
 		return model.Part{}, errs.ErrPartNotFound
@@ -39,6 +44,9 @@ func (r *Repository) Get(_ context.Context, id uuid.UUID) (model.Part, error) {
 // ListParts возвращает детали по списку ids (если ids непустой — порядок как в ids).
 // Если ids пустой — выборка по partType и сортировка по имени.
 func (r *Repository) ListParts(_ context.Context, partType model.PartType, ids []uuid.UUID) ([]model.Part, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
 	if len(ids) > 0 {
 		return listPartsByOrderedIDs(r.parts, ids)
 	}

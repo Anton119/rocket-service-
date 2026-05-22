@@ -7,8 +7,11 @@ var (
 
 	ErrPartNotFound          = errors.New("part not found")
 	ErrPartOutOfStock        = errors.New("part out of stock")
-	ErrOrderPayNotAllowed    = errors.New("order pay not allowed")
-	ErrOrderCancelNotAllowed = errors.New("order cancel not allowed")
+	ErrOrderPayNotAllowed = errors.New("order pay not allowed")
+
+	ErrOrderAlreadyPaid       = errors.New("заказ уже оплачен, отмена невозможна")
+	ErrOrderAlreadyCancelled  = errors.New("заказ уже отменён")
+	ErrOrderCancelNotAllowed  = errors.New("отмена заказа невозможна в текущем статусе")
 
 	ErrInvalidPaymentMethod = errors.New("invalid payment method")
 )

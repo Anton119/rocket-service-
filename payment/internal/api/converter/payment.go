@@ -37,10 +37,10 @@ func PayOrderInputFromRequest(req *paymentv1.PayOrderRequest) (input.PayOrderInp
 	}, nil
 }
 
-// PayOrderResponseFromResult собирает protobuf-ответ из результата use case.
-func PayOrderResponseFromResult(out input.PayOrderResult) *paymentv1.PayOrderResponse {
+// PayOrderResponseFromTransactionUUID собирает protobuf-ответ из ID транзакции.
+func PayOrderResponseFromTransactionUUID(txID uuid.UUID) *paymentv1.PayOrderResponse {
 	return &paymentv1.PayOrderResponse{
-		TransactionUuid: out.TransactionUUID.String(),
+		TransactionUuid: txID.String(),
 	}
 }
 

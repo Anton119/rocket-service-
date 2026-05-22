@@ -2,7 +2,6 @@ package order
 
 import (
 	"context"
-	"errors"
 
 	"github.com/google/uuid"
 
@@ -36,28 +35,13 @@ func (s *Service) PayOrder(ctx context.Context, in input.PayOrderInput) (uuid.UU
 		return uuid.Nil, err
 	}
 
-	stored, err = s.repo.Get(ctx, in.OrderUUID)
-	if err != nil {
-		if errors.Is(err, errs.ErrOrderNotFound) {
-			return uuid.Nil, errs.ErrOrderNotFound
-		}
+	stored.Status = model.OrderStatusPaid
+	stored.TransactionUUID = &txID
+	pm := in.PaymentMethodStored
+	stored.PaymentMethod = &pm
 
+	if err := s.repo.Save(ctx, stored); err != nil {
 		return uuid.Nil, err
-	}
-
-	switch stored.Status {
-	case model.OrderStatusPendingPayment:
-		stored.Status = model.OrderStatusPaid
-		stored.TransactionUUID = &txID
-		pm := in.PaymentMethodStored
-		stored.PaymentMethod = &pm
-		if err := s.repo.Save(ctx, stored); err != nil {
-			return uuid.Nil, err
-		}
-	case model.OrderStatusPaid, model.OrderStatusCancelled:
-		return uuid.Nil, errs.ErrOrderPayNotAllowed
-	default:
-		return uuid.Nil, errs.ErrOrderPayNotAllowed
 	}
 
 	return txID, nil

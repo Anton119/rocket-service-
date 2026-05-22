@@ -23,13 +23,14 @@ func TestGetOrder(t *testing.T) {
 
 	var (
 		ctx       = context.Background()
-		orderUUID = uuid.MustParse("550e8400-e29b-41d4-a716-446655440099")
+		orderUUID  = uuid.MustParse("550e8400-e29b-41d4-a716-446655440099")
+		totalPrice = int64(800_000)
 
 		storedOrder = model.Order{
 			OrderUUID:  orderUUID,
 			HullUUID:   uuid.MustParse("550e8400-e29b-41d4-a716-446655440001"),
 			EngineUUID: uuid.MustParse("550e8400-e29b-41d4-a716-446655440003"),
-			TotalPrice: 800_000,
+			TotalPrice: totalPrice,
 			Status:     model.OrderStatusPendingPayment,
 			CreatedAt:  time.Now(),
 		}
@@ -81,7 +82,7 @@ func TestGetOrder(t *testing.T) {
 			dto, ok := res.(*orderv1.OrderDto)
 			require.True(t, ok)
 			assert.Equal(t, orderUUID, dto.OrderUUID)
-			assert.Equal(t, int64(800_000), dto.TotalPrice)
+			assert.Equal(t, totalPrice, dto.TotalPrice)
 		})
 	}
 }

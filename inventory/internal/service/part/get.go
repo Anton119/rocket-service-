@@ -2,6 +2,7 @@ package part
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 
@@ -10,5 +11,10 @@ import (
 
 // GetPart возвращает деталь по UUID.
 func (s *Service) GetPart(ctx context.Context, id uuid.UUID) (model.Part, error) {
-	return s.repo.Get(ctx, id)
+	part, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return model.Part{}, fmt.Errorf("получить деталь: %w", err)
+	}
+
+	return part, nil
 }

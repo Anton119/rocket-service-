@@ -22,7 +22,7 @@ func TestListParts(t *testing.T) {
 
 	type expected struct {
 		err   error
-		count int
+		parts []model.Part
 	}
 
 	var (
@@ -69,7 +69,7 @@ func TestListParts(t *testing.T) {
 					ListParts(ctx, model.PartTypeUnspecified, []uuid.UUID{hullUUID, engineUUID}).
 					Return(parts, nil)
 			},
-			expected: expected{err: nil, count: 2},
+			expected: expected{parts: parts},
 		},
 		{
 			name: "деталь не найдена",
@@ -101,7 +101,7 @@ func TestListParts(t *testing.T) {
 				assert.Nil(t, got)
 			} else {
 				require.NoError(t, err)
-				assert.Len(t, got, tc.expected.count)
+				assert.Equal(t, tc.expected.parts, got)
 			}
 		})
 	}

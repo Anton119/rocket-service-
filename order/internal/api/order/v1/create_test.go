@@ -27,7 +27,8 @@ func TestCreateOrder(t *testing.T) {
 
 		hullUUID   = uuid.MustParse("550e8400-e29b-41d4-a716-446655440001")
 		engineUUID = uuid.MustParse("550e8400-e29b-41d4-a716-446655440003")
-		orderUUID  = uuid.MustParse("550e8400-e29b-41d4-a716-446655440099")
+		orderUUID   = uuid.MustParse("550e8400-e29b-41d4-a716-446655440099")
+		totalPrice  = int64(800_000)
 
 		req = &orderv1.CreateOrderRequest{}
 	)
@@ -50,7 +51,7 @@ func TestCreateOrder(t *testing.T) {
 					}).
 					Return(&input.CreateOrderResult{
 						OrderUUID:  orderUUID,
-						TotalPrice: 800_000,
+						TotalPrice: totalPrice,
 					}, nil)
 			},
 			expected: expected{},
@@ -99,7 +100,7 @@ func TestCreateOrder(t *testing.T) {
 				resp, ok := res.(*orderv1.CreateOrderResponse)
 				require.True(t, ok)
 				assert.Equal(t, orderUUID, resp.OrderUUID)
-				assert.Equal(t, int64(800_000), resp.TotalPrice)
+				assert.Equal(t, totalPrice, resp.TotalPrice)
 			}
 		})
 	}

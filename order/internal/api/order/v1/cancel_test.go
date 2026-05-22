@@ -16,8 +16,9 @@ import (
 
 func TestCancelOrder(t *testing.T) {
 	type expected struct {
-		notFound bool
-		conflict bool
+		notFound       bool
+		conflict       bool
+		conflictMessage string
 	}
 
 	var (
@@ -49,13 +50,28 @@ func TestCancelOrder(t *testing.T) {
 			expected: expected{notFound: true},
 		},
 		{
-			name: "отмена невозможна в текущем статусе",
+			name: "отмена оплаченного заказа",
 			setupMock: func(svc *apimocks.OrderService) {
 				svc.EXPECT().
 					CancelOrder(ctx, orderUUID).
-					Return(errs.ErrOrderCancelNotAllowed)
+					Return(errs.ErrOrderAlreadyPaid)
 			},
-			expected: expected{conflict: true},
+			expected: expected{
+				conflict:        true,
+				conflictMessage: errs.ErrOrderAlreadyPaid.Error(),
+			},
+		},
+		{
+			name: "повторная отмена заказа",
+			setupMock: func(svc *apimocks.OrderService) {
+				svc.EXPECT().
+					CancelOrder(ctx, orderUUID).
+					Return(errs.ErrOrderAlreadyCancelled)
+			},
+			expected: expected{
+				conflict:        true,
+				conflictMessage: errs.ErrOrderAlreadyCancelled.Error(),
+			},
 		},
 	}
 
@@ -78,6 +94,7 @@ func TestCancelOrder(t *testing.T) {
 				resp, ok := res.(*orderv1.CancelOrderConflict)
 				require.True(t, ok)
 				assert.Equal(t, http.StatusConflict, resp.Code)
+				assert.Equal(t, tc.expected.conflictMessage, resp.Message)
 			default:
 				_, ok := res.(*orderv1.CancelOrderResponse)
 				require.True(t, ok)

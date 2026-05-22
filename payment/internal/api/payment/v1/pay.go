@@ -21,10 +21,10 @@ func (a *API) PayOrder(ctx context.Context, req *paymentv1.PayOrderRequest) (*pa
 		return nil, err
 	}
 
-	out, err := a.svc.PayOrder(ctx, in)
+	txID, err := a.svc.PayOrder(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 
-	return apiconv.PayOrderResponseFromResult(*out), nil
+	return apiconv.PayOrderResponseFromTransactionUUID(txID), nil
 }

@@ -40,11 +40,10 @@ func TestPayOrder(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := NewService()
-			out, err := svc.PayOrder(ctx, tc.args.in)
+			txID, err := svc.PayOrder(ctx, tc.args.in)
 
 			require.NoError(t, err)
-			require.NotNil(t, out)
-			assert.NotEqual(t, uuid.Nil, out.TransactionUUID)
+			assert.NotEqual(t, uuid.Nil, txID)
 		})
 	}
 }
