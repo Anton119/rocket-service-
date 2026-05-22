@@ -16,8 +16,8 @@ import (
 
 func TestCancelOrder(t *testing.T) {
 	type expected struct {
-		notFound       bool
-		conflict       bool
+		notFound        bool
+		conflict        bool
 		conflictMessage string
 	}
 

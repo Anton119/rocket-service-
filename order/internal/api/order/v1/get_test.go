@@ -22,7 +22,7 @@ func TestGetOrder(t *testing.T) {
 	}
 
 	var (
-		ctx       = context.Background()
+		ctx        = context.Background()
 		orderUUID  = uuid.MustParse("550e8400-e29b-41d4-a716-446655440099")
 		totalPrice = int64(800_000)
 

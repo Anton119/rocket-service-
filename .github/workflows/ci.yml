@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, hm2]
+  pull_request:
+
+env:
+  GOPROXY: https://proxy.golang.org,direct
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.0"
+          cache-dependency-path: |
+            go.work.sum
+            order/go.sum
+            inventory/go.sum
+            payment/go.sum
+            shared/go.sum
+
+      - name: Setup Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
+      - name: Sync workspace
+        run: go work sync
+
+      - name: Tidy modules
+        run: task mod:tidy
+
+      - name: Lint
+        run: task lint
+
+      - name: Unit tests with coverage
+        run: task test:coverage
+
+      - name: API tests
+        run: task test:api

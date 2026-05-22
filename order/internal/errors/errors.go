@@ -5,13 +5,13 @@ import "errors"
 var (
 	ErrOrderNotFound = errors.New("order not found")
 
-	ErrPartNotFound          = errors.New("part not found")
-	ErrPartOutOfStock        = errors.New("part out of stock")
+	ErrPartNotFound       = errors.New("part not found")
+	ErrPartOutOfStock     = errors.New("part out of stock")
 	ErrOrderPayNotAllowed = errors.New("order pay not allowed")
 
-	ErrOrderAlreadyPaid       = errors.New("заказ уже оплачен, отмена невозможна")
-	ErrOrderAlreadyCancelled  = errors.New("заказ уже отменён")
-	ErrOrderCancelNotAllowed  = errors.New("отмена заказа невозможна в текущем статусе")
+	ErrOrderAlreadyPaid      = errors.New("заказ уже оплачен, отмена невозможна")
+	ErrOrderAlreadyCancelled = errors.New("заказ уже отменён")
+	ErrOrderCancelNotAllowed = errors.New("отмена заказа невозможна в текущем статусе")
 
 	ErrInvalidPaymentMethod = errors.New("invalid payment method")
 )
