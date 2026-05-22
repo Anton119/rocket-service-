@@ -25,10 +25,8 @@ jobs:
             payment/go.sum
             shared/go.sum
 
-      - name: Setup Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
+      - name: Install Task
+        run: go install github.com/go-task/task/v3/cmd/task@v3.41.0
 
       - name: Init Go workspace
         run: |
