@@ -19,7 +19,11 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 
 	invSvc "github.com/Anton119/rocket-service-/inventory/pkg/service"
-	orderHandler "github.com/Anton119/rocket-service-/order/pkg/handler"
+	orderapi "github.com/Anton119/rocket-service-/order/internal/api/order/v1"
+	inventorygrpc "github.com/Anton119/rocket-service-/order/internal/client/grpc/inventory/v1"
+	paymentgrpc "github.com/Anton119/rocket-service-/order/internal/client/grpc/payment/v1"
+	orderrepo "github.com/Anton119/rocket-service-/order/internal/repository/order"
+	ordersvc "github.com/Anton119/rocket-service-/order/internal/service/order"
 	"github.com/Anton119/rocket-service-/order/tests/testutil"
 	paySvc "github.com/Anton119/rocket-service-/payment/pkg/service"
 	"github.com/Anton119/rocket-service-/shared/pkg/grpc/interceptor"
@@ -106,7 +110,7 @@ func TestMain(m *testing.M) {
 	// 2. Payment gRPC через bufconn
 	payLis = bufconn.Listen(bufSize)
 	payGRPCServer := grpc.NewServer(unaryChain)
-	paymentv1.RegisterPaymentServiceServer(payGRPCServer, &paySvc.PaymentServer{})
+	paymentv1.RegisterPaymentServiceServer(payGRPCServer, paySvc.NewPaymentServer())
 	go func() {
 		if payServeErr := payGRPCServer.Serve(payLis); payServeErr != nil {
 			panic(payServeErr)
@@ -122,10 +126,12 @@ func TestMain(m *testing.M) {
 	}
 	paymentClient = paymentv1.NewPaymentServiceClient(payConn)
 
-	// 3. Order HTTP через httptest
-	store := orderHandler.NewOrderStore()
-	h := orderHandler.NewOrderHandler(inventoryClient, paymentClient, store)
-	orderServer, err := orderHandler.SetupServer(h)
+	repo := orderrepo.NewRepository()
+	inv := inventorygrpc.NewClient(inventoryClient)
+	pay := paymentgrpc.NewClient(paymentClient)
+	svc := ordersvc.NewService(repo, inv, pay)
+	api := orderapi.NewAPI(svc)
+	orderServer, err := orderapi.NewServer(api)
 	if err != nil {
 		panic(err)
 	}

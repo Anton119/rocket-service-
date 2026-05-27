@@ -13,7 +13,8 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 
-	svc "github.com/Anton119/rocket-service-/payment/pkg/service"
+	payapi "github.com/Anton119/rocket-service-/payment/internal/api/payment/v1"
+	paymentsvc "github.com/Anton119/rocket-service-/payment/internal/service/payment"
 	"github.com/Anton119/rocket-service-/shared/pkg/grpc/interceptor"
 	paymentv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/payment/v1"
 )
@@ -48,7 +49,7 @@ func run() error {
 	// прото валидация для gprc
 	pvUnary, err := interceptor.UnaryProtovalidateInterceptor()
 	if err != nil {
-		slog.Error("protovalidate", "error", err)
+		slog.Error("ошибка инициализации protovalidate", "error", err)
 		return err
 	}
 
@@ -72,7 +73,9 @@ func run() error {
 			interceptor.LoggerInterceptor(),
 		),
 	)
-	paymentv1.RegisterPaymentServiceServer(grpcServer, &svc.PaymentServer{})
+	svc := paymentsvc.NewService()
+	api := payapi.NewAPI(svc)
+	paymentv1.RegisterPaymentServiceServer(grpcServer, api)
 
 	// Включаем reflection для postman/grpcurl
 	reflection.Register(grpcServer)
@@ -81,7 +84,7 @@ func run() error {
 
 	serveErrCh := make(chan error, 1)
 	go func() {
-		slog.Info("🚀 gRPC сервер запущен", "address", grpcAddress)
+		slog.Info("🚀 gRPC сервер запущен", "адрес", grpcAddress)
 		serveErrCh <- grpcServer.Serve(lis)
 	}()
 
@@ -91,7 +94,7 @@ func run() error {
 
 	select {
 	case sig := <-quit:
-		slog.Info("🛑 завершение работы gRPC сервера...", "signal", sig.String())
+		slog.Info("🛑 завершение работы gRPC сервера...", "сигнал", sig.String())
 
 		stopped := make(chan struct{})
 		go func() {
@@ -105,7 +108,7 @@ func run() error {
 		case <-stopped:
 			slog.Info("✅ сервер остановлен")
 		case <-timer.C:
-			slog.Warn("⏳ graceful shutdown timeout, forcing stop")
+			slog.Warn("⏳ таймаут graceful shutdown, принудительная остановка")
 			grpcServer.Stop()
 		}
 
