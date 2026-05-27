@@ -49,7 +49,7 @@ func run() error {
 	// прото валидация для gprc
 	pvUnary, err := interceptor.UnaryProtovalidateInterceptor()
 	if err != nil {
-		slog.Error("protovalidate", "error", err)
+		slog.Error("ошибка инициализации protovalidate", "error", err)
 		return err
 	}
 
@@ -84,7 +84,7 @@ func run() error {
 
 	serveErrCh := make(chan error, 1)
 	go func() {
-		slog.Info("🚀 gRPC сервер запущен", "address", grpcAddress)
+		slog.Info("🚀 gRPC сервер запущен", "адрес", grpcAddress)
 		serveErrCh <- grpcServer.Serve(lis)
 	}()
 
@@ -94,7 +94,7 @@ func run() error {
 
 	select {
 	case sig := <-quit:
-		slog.Info("🛑 завершение работы gRPC сервера...", "signal", sig.String())
+		slog.Info("🛑 завершение работы gRPC сервера...", "сигнал", sig.String())
 
 		stopped := make(chan struct{})
 		go func() {
@@ -108,7 +108,7 @@ func run() error {
 		case <-stopped:
 			slog.Info("✅ сервер остановлен")
 		case <-timer.C:
-			slog.Warn("⏳ graceful shutdown timeout, forcing stop")
+			slog.Warn("⏳ таймаут graceful shutdown, принудительная остановка")
 			grpcServer.Stop()
 		}
 

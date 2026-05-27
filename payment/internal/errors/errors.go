@@ -6,5 +6,5 @@ var (
 	ErrEmptyOrderUUID           = errors.New("uuid не может быть пустым")
 	ErrInvalidOrderUUID         = errors.New("неверный формат uuid")
 	ErrPaymentMethodUnspecified = errors.New("payment_method не указан")
-	ErrInvalidPaymentMethod     = errors.New("invalid payment method")
+	ErrInvalidPaymentMethod     = errors.New("неизвестный способ оплаты")
 )
