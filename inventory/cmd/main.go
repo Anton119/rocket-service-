@@ -9,6 +9,9 @@ import (
 	"syscall"
 	"time"
 
+	trmpgx "github.com/avito-tech/go-transaction-manager/drivers/pgxv5/v2"
+	"github.com/avito-tech/go-transaction-manager/trm/v2/manager"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
@@ -23,6 +26,9 @@ import (
 const (
 	// Адрес сервера.
 	grpcAddress = "localhost:50051"
+
+	// DSN из inventory.env (конфиги — неделя 4).
+	inventoryDSN = "postgres://inventory-service-user:inventory-service-password@localhost:5433/inventory-service?sslmode=disable"
 
 	// Таймауты для graceful shutdown.
 	shutdownTimeout = 10 * time.Second
@@ -43,6 +49,28 @@ func main() {
 }
 
 func run() error {
+	ctx := context.Background()
+
+	pool, err := pgxpool.New(ctx, inventoryDSN)
+	if err != nil {
+		slog.Error("создание пула соединений", "error", err)
+		return err
+	}
+	defer pool.Close()
+
+	err = pool.Ping(ctx)
+	if err != nil {
+		slog.Error("проверка соединения с БД", "error", err)
+		return err
+	}
+	slog.Info("подключение к PostgreSQL установлено")
+
+	txManager, err := manager.New(trmpgx.NewDefaultFactory(pool))
+	if err != nil {
+		slog.Error("создание transaction manager", "error", err)
+		return err
+	}
+
 	lis, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", grpcAddress)
 	if err != nil {
 		slog.Error("не удалось создать listener", "error", err)
@@ -75,7 +103,7 @@ func run() error {
 			interceptor.LoggerInterceptor(),
 		),
 	)
-	repo := partrepo.NewRepository(partrepo.SeedParts())
+	repo := partrepo.New(pool, txManager)
 	catalog := partsvc.NewService(repo)
 	api := invapi.NewAPI(catalog)
 	inventoryv1.RegisterInventoryServiceServer(grpcServer, api)

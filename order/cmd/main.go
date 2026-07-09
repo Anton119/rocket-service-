@@ -11,6 +11,9 @@ import (
 	"syscall"
 	"time"
 
+	trmpgx "github.com/avito-tech/go-transaction-manager/drivers/pgxv5/v2"
+	"github.com/avito-tech/go-transaction-manager/trm/v2/manager"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -27,6 +30,9 @@ const (
 	inventoryServiceAddress = "localhost:50051"
 	paymentServiceAddress   = "localhost:50052"
 )
+
+// DSN из order.env (конфиги — неделя 4).
+const orderDSN = "postgres://order-service-user:order-service-password@localhost:5432/order-service?sslmode=disable"
 
 const (
 	httpPort     = "8080"
@@ -48,6 +54,28 @@ func main() {
 }
 
 func run() error {
+	ctx := context.Background()
+
+	pool, err := pgxpool.New(ctx, orderDSN)
+	if err != nil {
+		slog.Error("создание пула соединений", "error", err)
+		return err
+	}
+	defer pool.Close()
+
+	err = pool.Ping(ctx)
+	if err != nil {
+		slog.Error("проверка соединения с БД", "error", err)
+		return err
+	}
+	slog.Info("подключение к PostgreSQL установлено")
+
+	txManager, err := manager.New(trmpgx.NewDefaultFactory(pool))
+	if err != nil {
+		slog.Error("создание transaction manager", "error", err)
+		return err
+	}
+
 	inventoryConn, err := grpc.NewClient(inventoryServiceAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -64,7 +92,7 @@ func run() error {
 	}
 	defer paymentConn.Close()
 
-	repo := orderrepo.NewRepository()
+	repo := orderrepo.New(pool, txManager)
 	inv := inventorygrpc.NewClient(inventoryv1.NewInventoryServiceClient(inventoryConn))
 	pay := paymentgrpc.NewClient(paymentv1.NewPaymentServiceClient(paymentConn))
 	svc := ordersvc.NewService(repo, inv, pay)

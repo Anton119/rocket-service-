@@ -18,14 +18,13 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 
-	invSvc "github.com/Anton119/rocket-service-/inventory/pkg/service"
 	orderapi "github.com/Anton119/rocket-service-/order/internal/api/order/v1"
 	inventorygrpc "github.com/Anton119/rocket-service-/order/internal/client/grpc/inventory/v1"
 	paymentgrpc "github.com/Anton119/rocket-service-/order/internal/client/grpc/payment/v1"
 	orderrepo "github.com/Anton119/rocket-service-/order/internal/repository/order"
 	ordersvc "github.com/Anton119/rocket-service-/order/internal/service/order"
+	"github.com/Anton119/rocket-service-/order/pkg/app"
 	"github.com/Anton119/rocket-service-/order/tests/testutil"
-	paySvc "github.com/Anton119/rocket-service-/payment/pkg/service"
 	"github.com/Anton119/rocket-service-/shared/pkg/grpc/interceptor"
 	inventoryv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/inventory/v1"
 	paymentv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/payment/v1"
@@ -57,6 +56,9 @@ var (
 	invLis *bufconn.Listener
 	payLis *bufconn.Listener
 
+	invDB   *app.DB
+	orderDB *app.DB
+
 	inventoryClient inventoryv1.InventoryServiceClient
 	paymentClient   paymentv1.PaymentServiceClient
 	httpClient      = testutil.NewHTTPClient()
@@ -78,6 +80,19 @@ func orderBaseURL() string {
 
 // TestMain запускает все сервисы перед тестами и останавливает после.
 func TestMain(m *testing.M) {
+	ctx := context.Background()
+
+	var err error
+	invDB, err = app.OpenInventoryDB(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	orderDB, err = app.OpenOrderDB(ctx)
+	if err != nil {
+		panic(err)
+	}
+
 	pvUnary, err := interceptor.UnaryProtovalidateInterceptor()
 	if err != nil {
 		panic(err)
@@ -91,7 +106,7 @@ func TestMain(m *testing.M) {
 	// 1. Inventory gRPC через bufconn
 	invLis = bufconn.Listen(bufSize)
 	invGRPCServer := grpc.NewServer(unaryChain)
-	inventoryv1.RegisterInventoryServiceServer(invGRPCServer, invSvc.NewInventoryServer())
+	inventoryv1.RegisterInventoryServiceServer(invGRPCServer, app.NewInventoryServer(invDB))
 	go func() {
 		if invServeErr := invGRPCServer.Serve(invLis); invServeErr != nil {
 			panic(invServeErr)
@@ -110,7 +125,7 @@ func TestMain(m *testing.M) {
 	// 2. Payment gRPC через bufconn
 	payLis = bufconn.Listen(bufSize)
 	payGRPCServer := grpc.NewServer(unaryChain)
-	paymentv1.RegisterPaymentServiceServer(payGRPCServer, paySvc.NewPaymentServer())
+	paymentv1.RegisterPaymentServiceServer(payGRPCServer, app.NewPaymentServer())
 	go func() {
 		if payServeErr := payGRPCServer.Serve(payLis); payServeErr != nil {
 			panic(payServeErr)
@@ -126,7 +141,7 @@ func TestMain(m *testing.M) {
 	}
 	paymentClient = paymentv1.NewPaymentServiceClient(payConn)
 
-	repo := orderrepo.NewRepository()
+	repo := orderrepo.New(orderDB.Pool, orderDB.TxManager)
 	inv := inventorygrpc.NewClient(inventoryClient)
 	pay := paymentgrpc.NewClient(paymentClient)
 	svc := ordersvc.NewService(repo, inv, pay)
@@ -144,6 +159,8 @@ func TestMain(m *testing.M) {
 	payConn.Close()
 	invGRPCServer.Stop()
 	payGRPCServer.Stop()
+	invDB.Close()
+	orderDB.Close()
 	os.Exit(code)
 }
 
