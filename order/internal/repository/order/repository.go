@@ -2,47 +2,35 @@ package order
 
 import (
 	"context"
-	"sync"
 
-	"github.com/google/uuid"
+	trmpgx "github.com/avito-tech/go-transaction-manager/drivers/pgxv5/v2"
+	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/Anton119/rocket-service-/order/internal/errors"
 	"github.com/Anton119/rocket-service-/order/internal/model"
-	repoconv "github.com/Anton119/rocket-service-/order/internal/repository/converter"
-	"github.com/Anton119/rocket-service-/order/internal/repository/record"
 )
 
-// Repository — потокобезопасное in-memory хранилище заказов.
+// Repository — PostgreSQL-хранилище заказов.
 type Repository struct {
-	mu     sync.RWMutex
-	orders map[uuid.UUID]record.Order
+	pool      *pgxpool.Pool
+	getter    *trmpgx.CtxGetter
+	txManager TxManager
 }
 
-// NewRepository создаёт пустое хранилище.
-func NewRepository() *Repository {
+// New создаёт репозиторий заказов.
+func New(pool *pgxpool.Pool, txManager TxManager) *Repository {
 	return &Repository{
-		orders: make(map[uuid.UUID]record.Order),
+		pool:      pool,
+		getter:    trmpgx.DefaultCtxGetter,
+		txManager: txManager,
 	}
 }
 
-// Get возвращает заказ или errs.ErrOrderNotFound.
-func (r *Repository) Get(_ context.Context, id uuid.UUID) (model.Order, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	rec, ok := r.orders[id]
-	if !ok {
-		return model.Order{}, errs.ErrOrderNotFound
-	}
-
-	return repoconv.OrderToModel(rec), nil
-}
-
-// Save создаёт или обновляет заказ.
-func (r *Repository) Save(_ context.Context, o model.Order) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	r.orders[o.OrderUUID] = repoconv.OrderToRecord(o)
-	return nil
+// Create атомарно сохраняет заказ и его позиции.
+func (r *Repository) Create(ctx context.Context, order model.Order) error {
+	return r.txManager.Do(ctx, func(txCtx context.Context) error {
+		if err := r.createOrder(txCtx, order); err != nil {
+			return err
+		}
+		return r.createOrderItems(txCtx, order)
+	})
 }

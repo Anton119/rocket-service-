@@ -20,6 +20,7 @@ type PaymentClient interface {
 
 // OrderRepository — персистентность заказов.
 type OrderRepository interface {
+	Create(ctx context.Context, order model.Order) error
 	Get(ctx context.Context, id uuid.UUID) (model.Order, error)
 	Save(ctx context.Context, order model.Order) error
 }

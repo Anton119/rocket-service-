@@ -7,30 +7,65 @@ import (
 
 func OrderToRecord(o model.Order) record.Order {
 	return record.Order{
-		OrderUUID:       o.OrderUUID,
-		HullUUID:        o.HullUUID,
-		EngineUUID:      o.EngineUUID,
-		ShieldUUID:      o.ShieldUUID,
-		WeaponUUID:      o.WeaponUUID,
-		TotalPrice:      o.TotalPrice,
+		UUID:            o.OrderUUID,
+		Status:          string(o.Status),
 		TransactionUUID: o.TransactionUUID,
 		PaymentMethod:   o.PaymentMethod,
-		Status:          string(o.Status),
 		CreatedAt:       o.CreatedAt,
+		UpdatedAt:       o.UpdatedAt,
 	}
 }
 
-func OrderToModel(r record.Order) model.Order {
-	return model.Order{
-		OrderUUID:       r.OrderUUID,
-		HullUUID:        r.HullUUID,
-		EngineUUID:      r.EngineUUID,
-		ShieldUUID:      r.ShieldUUID,
-		WeaponUUID:      r.WeaponUUID,
-		TotalPrice:      r.TotalPrice,
-		TransactionUUID: r.TransactionUUID,
-		PaymentMethod:   r.PaymentMethod,
-		Status:          model.OrderStatus(r.Status),
-		CreatedAt:       r.CreatedAt,
+func OrderItemsToRecord(o model.Order) []record.OrderItem {
+	items := make([]record.OrderItem, len(o.Items))
+	for i, item := range o.Items {
+		items[i] = record.OrderItem{
+			OrderUUID: o.OrderUUID,
+			PartUUID:  item.PartUUID,
+			PartType:  item.PartType,
+			Price:     item.Price,
+		}
 	}
+	return items
+}
+
+func OrderToModel(rec record.Order, items []record.OrderItem) model.Order {
+	domainItems := make([]model.OrderItem, len(items))
+	var total int64
+
+	o := model.Order{
+		OrderUUID:       rec.UUID,
+		Status:          model.OrderStatus(rec.Status),
+		TransactionUUID: rec.TransactionUUID,
+		PaymentMethod:   rec.PaymentMethod,
+		CreatedAt:       rec.CreatedAt,
+		UpdatedAt:       rec.UpdatedAt,
+	}
+
+	for i, item := range items {
+		domainItems[i] = model.OrderItem{
+			PartUUID: item.PartUUID,
+			PartType: item.PartType,
+			Price:    item.Price,
+		}
+		total += item.Price
+
+		switch item.PartType {
+		case "HULL":
+			o.HullUUID = item.PartUUID
+		case "ENGINE":
+			o.EngineUUID = item.PartUUID
+		case "SHIELD":
+			partUUID := item.PartUUID
+			o.ShieldUUID = &partUUID
+		case "WEAPON":
+			partUUID := item.PartUUID
+			o.WeaponUUID = &partUUID
+		}
+	}
+
+	o.Items = domainItems
+	o.TotalPrice = total
+
+	return o
 }

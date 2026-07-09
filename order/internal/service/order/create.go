@@ -2,6 +2,7 @@ package order
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -45,9 +46,25 @@ func (s *Service) CreateOrder(ctx context.Context, in input.CreateOrderInput) (*
 		}
 	}
 
+	items := mergeOrderItems([]orderSlot{
+		{partUUID: hull, partType: "HULL", price: byUUID[hull.String()].Price},
+		{partUUID: engine, partType: "ENGINE", price: byUUID[engine.String()].Price},
+	})
+
 	var totalSum int64
-	for _, id := range uuids {
-		totalSum += byUUID[id].Price
+	for _, item := range items {
+		totalSum += item.Price
+	}
+
+	if in.ShieldUUID != nil {
+		shield := *in.ShieldUUID
+		items = appendMergedItem(items, shield, "SHIELD", byUUID[shield.String()].Price)
+		totalSum += byUUID[shield.String()].Price
+	}
+	if in.WeaponUUID != nil {
+		weapon := *in.WeaponUUID
+		items = appendMergedItem(items, weapon, "WEAPON", byUUID[weapon.String()].Price)
+		totalSum += byUUID[weapon.String()].Price
 	}
 
 	orderUUID := uuid.New()
@@ -55,6 +72,7 @@ func (s *Service) CreateOrder(ctx context.Context, in input.CreateOrderInput) (*
 
 	o := model.Order{
 		OrderUUID:  orderUUID,
+		Items:      items,
 		HullUUID:   hull,
 		EngineUUID: engine,
 		TotalPrice: totalSum,
@@ -64,8 +82,8 @@ func (s *Service) CreateOrder(ctx context.Context, in input.CreateOrderInput) (*
 	o.ShieldUUID = in.ShieldUUID
 	o.WeaponUUID = in.WeaponUUID
 
-	if err := s.repo.Save(ctx, o); err != nil {
-		return nil, err
+	if err := s.repo.Create(ctx, o); err != nil {
+		return nil, fmt.Errorf("сохранение заказа: %w", err)
 	}
 
 	return &input.CreateOrderResult{

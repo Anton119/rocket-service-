@@ -61,12 +61,13 @@ func TestCreateOrder(t *testing.T) {
 					Return(partsInStock, nil)
 
 				repo.EXPECT().
-					Save(ctx, mock.MatchedBy(func(o model.Order) bool {
+					Create(ctx, mock.MatchedBy(func(o model.Order) bool {
 						return o.HullUUID == hullUUID &&
 							o.EngineUUID == engineUUID &&
 							o.TotalPrice == 800_000 &&
 							o.Status == model.OrderStatusPendingPayment &&
-							o.OrderUUID != uuid.Nil
+							o.OrderUUID != uuid.Nil &&
+							len(o.Items) == 2
 					})).
 					Return(nil)
 			},

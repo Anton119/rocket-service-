@@ -15,9 +15,17 @@ const (
 	OrderStatusCancelled      OrderStatus = "CANCELLED"
 )
 
+// OrderItem — позиция заказа (snapshot детали на момент создания).
+type OrderItem struct {
+	PartUUID uuid.UUID
+	PartType string
+	Price    int64
+}
+
 // Order — заказ на постройку космического корабля.
 type Order struct {
 	OrderUUID       uuid.UUID
+	Items           []OrderItem
 	HullUUID        uuid.UUID
 	EngineUUID      uuid.UUID
 	ShieldUUID      *uuid.UUID
@@ -27,4 +35,5 @@ type Order struct {
 	PaymentMethod   *string
 	Status          OrderStatus
 	CreatedAt       time.Time
+	UpdatedAt       *time.Time
 }
