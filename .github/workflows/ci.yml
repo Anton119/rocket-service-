@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, master, hm2]
+    branches: [main, master, hm2, hm3]
   pull_request:
 
 env:
@@ -42,5 +42,37 @@ jobs:
       - name: Unit tests with coverage
         run: task test:coverage
 
+      - name: Start PostgreSQL
+        run: |
+          task up-core
+          task up-inventory
+          task up-order
+
+      - name: Wait for PostgreSQL
+        run: |
+          for i in $(seq 1 30); do
+            docker exec postgres-inventory pg_isready -U inventory-service-user -d inventory-service &&
+            docker exec postgres-order pg_isready -U order-service-user -d order-service &&
+            exit 0
+            sleep 2
+          done
+          echo "PostgreSQL не готов" >&2
+          exit 1
+
+      - name: Apply migrations
+        run: |
+          task migrate:inventory:up
+          task migrate:order:up
+
       - name: API tests
+        env:
+          INVENTORY_DB_URI: postgres://inventory-service-user:inventory-service-password@localhost:5433/inventory-service?sslmode=disable
+          ORDER_DB_URI: postgres://order-service-user:order-service-password@localhost:5432/order-service?sslmode=disable
         run: task test:api
+
+      - name: Stop PostgreSQL
+        if: always()
+        run: |
+          task down-order || true
+          task down-inventory || true
+          task down-core || true
