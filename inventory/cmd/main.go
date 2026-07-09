@@ -19,27 +19,22 @@ import (
 	invapi "github.com/Anton119/rocket-service-/inventory/internal/api/inventory/v1"
 	partrepo "github.com/Anton119/rocket-service-/inventory/internal/repository/part"
 	partsvc "github.com/Anton119/rocket-service-/inventory/internal/service/part"
+	"github.com/Anton119/rocket-service-/shared/pkg/config"
 	"github.com/Anton119/rocket-service-/shared/pkg/grpc/interceptor"
 	inventoryv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/inventory/v1"
 )
 
 const (
-	// Адрес сервера.
 	grpcAddress = "localhost:50051"
 
-	// DSN из inventory.env (конфиги — неделя 4).
-	inventoryDSN = "postgres://inventory-service-user:inventory-service-password@localhost:5433/inventory-service?sslmode=disable"
-
-	// Таймауты для graceful shutdown.
 	shutdownTimeout = 10 * time.Second
 
-	// gRPC keepalive параметры.
-	grpcMaxConnectionIdle     = 15 * time.Minute // Закрыть idle-соединения (нет активных RPC)
-	grpcMaxConnectionAge      = 30 * time.Minute // Принудительная ротация для балансировки
-	grpcMaxConnectionAgeGrace = 5 * time.Second  // Время на завершение активных RPC
-	grpcKeepaliveTime         = 5 * time.Minute  // Интервал ping'ов для обнаружения мёртвых соединений
-	grpcKeepaliveTimeout      = 1 * time.Second  // Таймаут ожидания pong
-	grpcMinPingInterval       = 5 * time.Minute  // Минимальный интервал ping'ов от клиента (защита от DoS)
+	grpcMaxConnectionIdle     = 15 * time.Minute
+	grpcMaxConnectionAge      = 30 * time.Minute
+	grpcMaxConnectionAgeGrace = 5 * time.Second
+	grpcKeepaliveTime         = 5 * time.Minute
+	grpcKeepaliveTimeout      = 1 * time.Second
+	grpcMinPingInterval       = 5 * time.Minute
 )
 
 func main() {
@@ -51,39 +46,73 @@ func main() {
 func run() error {
 	ctx := context.Background()
 
-	pool, err := pgxpool.New(ctx, inventoryDSN)
+	dsn, err := config.DBURI()
 	if err != nil {
-		slog.Error("создание пула соединений", "error", err)
+		slog.Error("получение DSN", "error", err)
+		return err
+	}
+
+	pool, txManager, err := openPostgres(ctx, dsn)
+	if err != nil {
 		return err
 	}
 	defer pool.Close()
-
-	err = pool.Ping(ctx)
-	if err != nil {
-		slog.Error("проверка соединения с БД", "error", err)
-		return err
-	}
-	slog.Info("подключение к PostgreSQL установлено")
-
-	txManager, err := manager.New(trmpgx.NewDefaultFactory(pool))
-	if err != nil {
-		slog.Error("создание transaction manager", "error", err)
-		return err
-	}
 
 	lis, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", grpcAddress)
 	if err != nil {
 		slog.Error("не удалось создать listener", "error", err)
 		return err
 	}
-	// прото валидация для gprc
-	pvUnary, err := interceptor.UnaryProtovalidateInterceptor()
+
+	grpcServer, err := newGRPCServer()
 	if err != nil {
-		slog.Error("ошибка инициализации protovalidate", "error", err)
 		return err
 	}
 
-	grpcServer := grpc.NewServer(
+	repo := partrepo.New(pool, txManager)
+	catalog := partsvc.NewService(repo)
+	api := invapi.NewAPI(catalog)
+	inventoryv1.RegisterInventoryServiceServer(grpcServer, api)
+	reflection.Register(grpcServer)
+
+	slog.Info("запуск InventoryService", "адрес", grpcAddress)
+
+	return serveUntilSignal(grpcServer, lis)
+}
+
+func openPostgres(ctx context.Context, dsn string) (*pgxpool.Pool, *manager.Manager, error) {
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		slog.Error("создание пула соединений", "error", err)
+		return nil, nil, err
+	}
+
+	err = pool.Ping(ctx)
+	if err != nil {
+		pool.Close()
+		slog.Error("проверка соединения с БД", "error", err)
+		return nil, nil, err
+	}
+	slog.Info("подключение к PostgreSQL установлено")
+
+	txManager, err := manager.New(trmpgx.NewDefaultFactory(pool))
+	if err != nil {
+		pool.Close()
+		slog.Error("создание transaction manager", "error", err)
+		return nil, nil, err
+	}
+
+	return pool, txManager, nil
+}
+
+func newGRPCServer() (*grpc.Server, error) {
+	pvUnary, err := interceptor.UnaryProtovalidateInterceptor()
+	if err != nil {
+		slog.Error("ошибка инициализации protovalidate", "error", err)
+		return nil, err
+	}
+
+	return grpc.NewServer(
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			MaxConnectionIdle:     grpcMaxConnectionIdle,
 			MaxConnectionAge:      grpcMaxConnectionAge,
@@ -95,24 +124,15 @@ func run() error {
 			MinTime:             grpcMinPingInterval,
 			PermitWithoutStream: true,
 		}),
-
-		// Интерцепторы: отлов паник, Protovalidate, логирование.
 		grpc.ChainUnaryInterceptor(
 			interceptor.RecoveryInterceptor(),
 			pvUnary,
 			interceptor.LoggerInterceptor(),
 		),
-	)
-	repo := partrepo.New(pool, txManager)
-	catalog := partsvc.NewService(repo)
-	api := invapi.NewAPI(catalog)
-	inventoryv1.RegisterInventoryServiceServer(grpcServer, api)
+	), nil
+}
 
-	// Включаем reflection для postman/grpcurl
-	reflection.Register(grpcServer)
-
-	slog.Info("запуск InventoryService", "адрес", grpcAddress)
-
+func serveUntilSignal(grpcServer *grpc.Server, lis net.Listener) error {
 	serveErrCh := make(chan error, 1)
 	go func() {
 		slog.Info("🚀 gRPC сервер запущен", "адрес", grpcAddress)
@@ -125,33 +145,39 @@ func run() error {
 
 	select {
 	case sig := <-quit:
-		slog.Info("🛑 завершение работы gRPC сервера...", "сигнал", sig.String())
-
-		stopped := make(chan struct{})
-		go func() {
-			grpcServer.GracefulStop()
-			close(stopped)
-		}()
-
-		timer := time.NewTimer(shutdownTimeout)
-		defer timer.Stop()
-		select {
-		case <-stopped:
-			slog.Info("✅ сервер остановлен")
-		case <-timer.C:
-			slog.Warn("⏳ таймаут graceful shutdown, принудительная остановка")
-			grpcServer.Stop()
-		}
-
-		if serveErr := <-serveErrCh; serveErr != nil {
-			slog.Error("ошибка работы сервера", "error", serveErr)
-			return serveErr
-		}
+		return gracefulStopGRPC(grpcServer, serveErrCh, sig)
 	case serveErr := <-serveErrCh:
 		if serveErr != nil {
 			slog.Error("ошибка запуска сервера", "error", serveErr)
 			return serveErr
 		}
+	}
+
+	return nil
+}
+
+func gracefulStopGRPC(grpcServer *grpc.Server, serveErrCh <-chan error, sig os.Signal) error {
+	slog.Info("🛑 завершение работы gRPC сервера...", "сигнал", sig.String())
+
+	stopped := make(chan struct{})
+	go func() {
+		grpcServer.GracefulStop()
+		close(stopped)
+	}()
+
+	timer := time.NewTimer(shutdownTimeout)
+	defer timer.Stop()
+	select {
+	case <-stopped:
+		slog.Info("✅ сервер остановлен")
+	case <-timer.C:
+		slog.Warn("⏳ таймаут graceful shutdown, принудительная остановка")
+		grpcServer.Stop()
+	}
+
+	if serveErr := <-serveErrCh; serveErr != nil {
+		slog.Error("ошибка работы сервера", "error", serveErr)
+		return serveErr
 	}
 
 	return nil

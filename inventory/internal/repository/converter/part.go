@@ -1,14 +1,25 @@
 package converter
 
 import (
+	"fmt"
+	"math"
+
 	"github.com/google/uuid"
 
+	errs "github.com/Anton119/rocket-service-/inventory/internal/errors"
 	"github.com/Anton119/rocket-service-/inventory/internal/model"
 	"github.com/Anton119/rocket-service-/inventory/internal/repository/record"
 )
 
-func PartModelToRecord(p model.Part) record.Part {
-	id, _ := uuid.Parse(p.UUID)
+func PartModelToRecord(p model.Part) (record.Part, error) {
+	id, err := uuid.Parse(p.UUID)
+	if err != nil {
+		return record.Part{}, fmt.Errorf("разобрать uuid: %w", errs.ErrInvalidUUID)
+	}
+
+	if p.StockQuantity > math.MaxInt32 || p.StockQuantity < math.MinInt32 {
+		return record.Part{}, fmt.Errorf("stock_quantity вне диапазона int32: %d", p.StockQuantity)
+	}
 
 	return record.Part{
 		UUID:          id,
@@ -18,7 +29,7 @@ func PartModelToRecord(p model.Part) record.Part {
 		Price:         p.Price,
 		StockQuantity: int32(p.StockQuantity),
 		CreatedAt:     p.CreatedAt,
-	}
+	}, nil
 }
 
 func PartRecordToModel(p record.Part) model.Part {

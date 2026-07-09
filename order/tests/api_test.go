@@ -73,6 +73,17 @@ func payBufDialer(context.Context, string) (net.Conn, error) {
 	return payLis.Dial()
 }
 
+func initTestDBEnv() {
+	if os.Getenv("INVENTORY_DB_URI") == "" {
+		os.Setenv("INVENTORY_DB_URI",
+			"postgres://inventory-service-user:inventory-service-password@localhost:5433/inventory-service?sslmode=disable")
+	}
+	if os.Getenv("ORDER_DB_URI") == "" {
+		os.Setenv("ORDER_DB_URI",
+			"postgres://order-service-user:order-service-password@localhost:5432/order-service?sslmode=disable")
+	}
+}
+
 // orderBaseURL возвращает базовый URL для HTTP тестов заказов.
 func orderBaseURL() string {
 	return ts.URL
@@ -80,6 +91,8 @@ func orderBaseURL() string {
 
 // TestMain запускает все сервисы перед тестами и останавливает после.
 func TestMain(m *testing.M) {
+	initTestDBEnv()
+
 	ctx := context.Background()
 
 	var err error

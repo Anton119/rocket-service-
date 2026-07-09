@@ -10,15 +10,9 @@ import (
 
 	invpkg "github.com/Anton119/rocket-service-/inventory/pkg/service"
 	paypkg "github.com/Anton119/rocket-service-/payment/pkg/service"
+	"github.com/Anton119/rocket-service-/shared/pkg/config"
 	inventoryv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/inventory/v1"
 	paymentv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/payment/v1"
-)
-
-const (
-	// InventoryDSN — из inventory.env (конфиги — неделя 4).
-	InventoryDSN = "postgres://inventory-service-user:inventory-service-password@localhost:5433/inventory-service?sslmode=disable"
-	// OrderDSN — из order.env (конфиги — неделя 4).
-	OrderDSN = "postgres://order-service-user:order-service-password@localhost:5432/order-service?sslmode=disable"
 )
 
 // DB — пул PostgreSQL и Transaction Manager для одного сервиса.
@@ -29,12 +23,22 @@ type DB struct {
 
 // OpenInventoryDB подключается к БД inventory (для API-тестов).
 func OpenInventoryDB(ctx context.Context) (*DB, error) {
-	return openDB(ctx, InventoryDSN)
+	dsn, err := config.InventoryDBURI()
+	if err != nil {
+		return nil, err
+	}
+
+	return openDB(ctx, dsn)
 }
 
 // OpenOrderDB подключается к БД order (для API-тестов).
 func OpenOrderDB(ctx context.Context) (*DB, error) {
-	return openDB(ctx, OrderDSN)
+	dsn, err := config.OrderDBURI()
+	if err != nil {
+		return nil, err
+	}
+
+	return openDB(ctx, dsn)
 }
 
 func openDB(ctx context.Context, dsn string) (*DB, error) {
