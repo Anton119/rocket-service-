@@ -24,7 +24,7 @@ force-file-write: true
 
 # Boilerplate текст (лицензия, заголовок).
 template-data:
-  boilerplate-file: ".mockery_boilerplate_text.txt"
+  boilerplate-file: "../.mockery_boilerplate_text.txt"
 
 packages:
   # Order service

@@ -1,11 +1,21 @@
 package part
 
-// Service бизнес-логика каталога деталей.
+// Service — application service каталога деталей.
 type Service struct {
-	repo PartRepository
+	repo                 PartRepository
+	txManager            TxManager
+	compatibilityChecker CompatibilityChecker
 }
 
 // NewService создаёт сервис каталога.
-func NewService(repo PartRepository) *Service {
-	return &Service{repo: repo}
+func NewService(
+	repo PartRepository,
+	txManager TxManager,
+	compatibilityChecker CompatibilityChecker,
+) *Service {
+	return &Service{
+		repo:                 repo,
+		txManager:            txManager,
+		compatibilityChecker: compatibilityChecker,
+	}
 }

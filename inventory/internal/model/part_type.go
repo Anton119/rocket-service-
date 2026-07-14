@@ -1,12 +1,29 @@
 package model
 
-// PartType — тип детали в доменной модели (числовые значения совпадают с inventory.v1.PartType).
-type PartType int32
+import (
+	"fmt"
+
+	errs "github.com/Anton119/rocket-service-/inventory/internal/errors"
+)
+
+// PartType — тип детали космического корабля.
+type PartType string
 
 const (
-	PartTypeUnspecified PartType = 0
-	PartTypeHull        PartType = 1
-	PartTypeEngine      PartType = 2
-	PartTypeShield      PartType = 3
-	PartTypeWeapon      PartType = 4
+	PartTypeUnspecified PartType = "UNSPECIFIED"
+	PartTypeHull        PartType = "HULL"
+	PartTypeEngine      PartType = "ENGINE"
+	PartTypeShield      PartType = "SHIELD"
+	PartTypeWeapon      PartType = "WEAPON"
 )
+
+// NewPartType создаёт тип детали с валидацией.
+func NewPartType(s string) (PartType, error) {
+	pt := PartType(s)
+	switch pt {
+	case PartTypeHull, PartTypeEngine, PartTypeShield, PartTypeWeapon:
+		return pt, nil
+	default:
+		return "", fmt.Errorf("неизвестный тип детали %q: %w", s, errs.ErrInvalidProperties)
+	}
+}

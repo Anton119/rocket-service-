@@ -1,8 +1,8 @@
 package converter
 
 import (
+	"encoding/json"
 	"fmt"
-	"math"
 
 	"github.com/google/uuid"
 
@@ -11,70 +11,80 @@ import (
 	"github.com/Anton119/rocket-service-/inventory/internal/repository/record"
 )
 
-func PartModelToRecord(p model.Part) (record.Part, error) {
-	id, err := uuid.Parse(p.UUID)
-	if err != nil {
-		return record.Part{}, fmt.Errorf("разобрать uuid: %w", errs.ErrInvalidUUID)
+func PartRecordsToModels(recs []record.Part) ([]model.Part, error) {
+	parts := make([]model.Part, 0, len(recs))
+	for i := range recs {
+		part, err := PartRecordToModel(recs[i])
+		if err != nil {
+			return nil, err
+		}
+		parts = append(parts, part)
 	}
 
-	if p.StockQuantity > math.MaxInt32 || p.StockQuantity < math.MinInt32 {
-		return record.Part{}, fmt.Errorf("stock_quantity вне диапазона int32: %d", p.StockQuantity)
-	}
-
-	return record.Part{
-		UUID:          id,
-		Name:          p.Name,
-		Description:   p.Description,
-		PartType:      partTypeToString(p.PartType),
-		Price:         p.Price,
-		StockQuantity: int32(p.StockQuantity),
-		CreatedAt:     p.CreatedAt,
-	}, nil
+	return parts, nil
 }
 
-func PartRecordToModel(p record.Part) model.Part {
-	return model.Part{
-		UUID:          p.UUID.String(),
-		Name:          p.Name,
-		Description:   p.Description,
-		Price:         p.Price,
-		PartType:      partTypeFromString(p.PartType),
-		StockQuantity: int64(p.StockQuantity),
-		CreatedAt:     p.CreatedAt,
+func PartRecordToModel(rec record.Part) (model.Part, error) {
+	var propsRec record.PartPropertiesRecord
+	if len(rec.Properties) > 0 {
+		if err := json.Unmarshal(rec.Properties, &propsRec); err != nil {
+			return model.Part{}, fmt.Errorf("десериализовать свойства: %w", err)
+		}
+	}
+
+	props, err := partPropertiesFromRecord(propsRec)
+	if err != nil {
+		return model.Part{}, fmt.Errorf("конвертировать свойства: %w", err)
+	}
+
+	partType, err := model.NewPartType(rec.PartType)
+	if err != nil {
+		return model.Part{}, fmt.Errorf("конвертировать тип детали: %w", err)
+	}
+
+	return model.RestorePart(
+		rec.UUID,
+		rec.Name,
+		rec.Description,
+		partType,
+		rec.Price,
+		int(rec.StockQuantity),
+		int(rec.Reserved),
+		props,
+		rec.CreatedAt,
+	), nil
+}
+
+func partPropertiesFromRecord(rec record.PartPropertiesRecord) (model.PartProperties, error) {
+	switch {
+	case rec.Hull != nil:
+		return model.NewHullProperties(rec.Hull.Strength)
+	case rec.Engine != nil:
+		return model.NewEngineProperties(model.EngineClass(rec.Engine.Class), rec.Engine.RequiredStrength)
+	case rec.Shield != nil:
+		return model.NewShieldProperties(model.ShieldType(rec.Shield.ShieldType))
+	case rec.Weapon != nil:
+		return model.NewWeaponProperties(model.WeaponType(rec.Weapon.WeaponType))
+	default:
+		return model.PartProperties{}, nil
 	}
 }
 
 // PartTypeToDB переводит доменный тип детали в значение колонки part_type.
 func PartTypeToDB(t model.PartType) string {
-	return partTypeToString(t)
+	return string(t)
 }
 
-func partTypeToString(t model.PartType) string {
-	switch t {
-	case model.PartTypeHull:
-		return "HULL"
-	case model.PartTypeEngine:
-		return "ENGINE"
-	case model.PartTypeShield:
-		return "SHIELD"
-	case model.PartTypeWeapon:
-		return "WEAPON"
-	default:
-		return ""
+// ParsePartUUID разбирает UUID из строки БД/запроса.
+func ParsePartUUID(s string) (uuid.UUID, error) {
+	if s == "" {
+		return uuid.Nil, errs.ErrEmptyUUID
 	}
-}
 
-func partTypeFromString(s string) model.PartType {
-	switch s {
-	case "HULL":
-		return model.PartTypeHull
-	case "ENGINE":
-		return model.PartTypeEngine
-	case "SHIELD":
-		return model.PartTypeShield
-	case "WEAPON":
-		return model.PartTypeWeapon
-	default:
-		return model.PartTypeUnspecified
+	id, err := uuid.Parse(s)
+	if err != nil {
+		return uuid.Nil, errs.ErrInvalidUUID
 	}
+
+	return id, nil
 }
