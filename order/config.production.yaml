@@ -1,0 +1,20 @@
+http:
+  host: "0.0.0.0"
+  port: "8080"
+
+pg:
+  host: "postgres-production"
+  port: "5432"
+  database: "order-service"
+  user: "MUST_BE_SET_VIA_ENV"
+  password: "MUST_BE_SET_VIA_ENV"
+  sslmode: "require"
+
+inventory_client:
+  address: "inventory-service:50051"
+
+payment_client:
+  address: "payment-service:50052"
+
+logger:
+  level: "info"

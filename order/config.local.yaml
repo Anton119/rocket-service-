@@ -1,0 +1,20 @@
+http:
+  host: "localhost"
+  port: "8080"
+
+pg:
+  host: "localhost"
+  port: "5432"
+  database: "order-service"
+  user: "order-service-user"
+  password: "order-service-password"
+  sslmode: "disable"
+
+inventory_client:
+  address: "localhost:50051"
+
+payment_client:
+  address: "localhost:50052"
+
+logger:
+  level: "info"

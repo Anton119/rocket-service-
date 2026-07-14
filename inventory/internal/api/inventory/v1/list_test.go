@@ -3,7 +3,6 @@ package v1
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -31,22 +30,8 @@ func TestListParts(t *testing.T) {
 		engineUUID = uuid.MustParse("550e8400-e29b-41d4-a716-446655440003")
 
 		parts = []model.Part{
-			{
-				UUID:          hullUUID.String(),
-				Name:          "Hull",
-				Price:         500_000,
-				PartType:      model.PartTypeHull,
-				StockQuantity: 10,
-				CreatedAt:     time.Now(),
-			},
-			{
-				UUID:          engineUUID.String(),
-				Name:          "Engine",
-				Price:         300_000,
-				PartType:      model.PartTypeEngine,
-				StockQuantity: 5,
-				CreatedAt:     time.Now(),
-			},
+			testPart(t, hullUUID, "Hull", "", model.PartTypeHull, 500_000, 10),
+			testPart(t, engineUUID, "Engine", "", model.PartTypeEngine, 300_000, 5),
 		}
 	)
 
@@ -98,7 +83,9 @@ func TestListParts(t *testing.T) {
 				tc.setupMock(svc)
 			}
 
-			res, err := NewAPI(svc).ListParts(ctx, tc.req)
+			res, err := withErrorInterceptor[*inventoryv1.ListPartsResponse](ctx, tc.req, func(ctx context.Context, req any) (any, error) {
+				return NewAPI(svc).ListParts(ctx, req.(*inventoryv1.ListPartsRequest))
+			})
 
 			if tc.expected.code != codes.OK {
 				require.Error(t, err)

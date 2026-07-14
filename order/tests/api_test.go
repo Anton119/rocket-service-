@@ -18,14 +18,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 
-	orderapi "github.com/Anton119/rocket-service-/order/internal/api/order/v1"
-	inventorygrpc "github.com/Anton119/rocket-service-/order/internal/client/grpc/inventory/v1"
-	paymentgrpc "github.com/Anton119/rocket-service-/order/internal/client/grpc/payment/v1"
-	orderrepo "github.com/Anton119/rocket-service-/order/internal/repository/order"
-	ordersvc "github.com/Anton119/rocket-service-/order/internal/service/order"
 	"github.com/Anton119/rocket-service-/order/pkg/app"
 	"github.com/Anton119/rocket-service-/order/tests/testutil"
-	"github.com/Anton119/rocket-service-/shared/pkg/grpc/interceptor"
 	inventoryv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/inventory/v1"
 	paymentv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/payment/v1"
 )
@@ -106,15 +100,10 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	pvUnary, err := interceptor.UnaryProtovalidateInterceptor()
+	unaryChain, err := app.Interceptors()
 	if err != nil {
 		panic(err)
 	}
-	unaryChain := grpc.ChainUnaryInterceptor(
-		interceptor.RecoveryInterceptor(),
-		pvUnary,
-		interceptor.LoggerInterceptor(),
-	)
 
 	// 1. Inventory gRPC через bufconn
 	invLis = bufconn.Listen(bufSize)
@@ -154,12 +143,7 @@ func TestMain(m *testing.M) {
 	}
 	paymentClient = paymentv1.NewPaymentServiceClient(payConn)
 
-	repo := orderrepo.New(orderDB.Pool, orderDB.TxManager)
-	inv := inventorygrpc.NewClient(inventoryClient)
-	pay := paymentgrpc.NewClient(paymentClient)
-	svc := ordersvc.NewService(repo, inv, pay)
-	api := orderapi.NewAPI(svc)
-	orderServer, err := orderapi.NewServer(api)
+	orderServer, err := app.NewOrderHTTPServer(orderDB, inventoryClient, paymentClient)
 	if err != nil {
 		panic(err)
 	}

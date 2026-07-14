@@ -34,7 +34,7 @@ vars:
   COVERAGE_FILE: '{{.COVERAGE_DIR}}/coverage.out'
   COVERAGE_THRESHOLD: '40'
 
-  MODULES: order inventory payment shared
+  MODULES: order inventory payment shared platform
 
 tasks:
   formatters:install:
@@ -164,7 +164,7 @@ tasks:
     deps: [mockery:install]
     cmds:
       - echo '🧪 Генерация моков...'
-      - '{{.MOCKERY}}'
+      - for mod in inventory order payment; do echo "=== mocks $mod ===" && (cd "$mod" && GOWORK=off {{.MOCKERY}} --config ../.mockery.yaml); done
 
   test:
     desc: "Запускает unit-тесты с race-детектором"
@@ -309,39 +309,39 @@ tasks:
     deps: [goose:install]
     dotenv: ['order.env']
     cmds:
-      - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "$DB_URI" up'
+      - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSLMODE}" up'
 
   migrate:order:down:
     desc: "Откатывает последнюю миграцию Order-сервиса"
     deps: [goose:install]
     dotenv: ['order.env']
     cmds:
-      - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "$DB_URI" down'
+      - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSLMODE}" down'
 
   migrate:order:status:
     desc: "Показывает статус миграций Order-сервиса"
     deps: [goose:install]
     dotenv: ['order.env']
     cmds:
-      - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "$DB_URI" status'
+      - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSLMODE}" status'
 
   migrate:inventory:up:
     desc: "Применяет все миграции Inventory-сервиса"
     deps: [goose:install]
     dotenv: ['inventory.env']
     cmds:
-      - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "$DB_URI" up'
+      - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSLMODE}" up'
 
   migrate:inventory:down:
     desc: "Откатывает последнюю миграцию Inventory-сервиса"
     deps: [goose:install]
     dotenv: ['inventory.env']
     cmds:
-      - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "$DB_URI" down'
+      - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSLMODE}" down'
 
   migrate:inventory:status:
     desc: "Показывает статус миграций Inventory-сервиса"
     deps: [goose:install]
     dotenv: ['inventory.env']
     cmds:
-      - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "$DB_URI" status'
+      - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSLMODE}" status'

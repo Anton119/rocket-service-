@@ -3,12 +3,14 @@ package errs
 import "errors"
 
 var (
-	// ErrPartNotFound возвращается, когда деталь с указанным UUID отсутствует.
-	ErrPartNotFound = errors.New("деталь не найдена")
-	// ErrEmptyUUID — пустой uuid в запросе.
-	ErrEmptyUUID = errors.New("uuid не может быть пустым")
-	// ErrInvalidUUID — uuid не является UUID.
-	ErrInvalidUUID = errors.New("неверный формат uuid")
+	ErrPartNotFound      = errors.New("деталь не найдена")
+	ErrEmptyUUID         = errors.New("uuid не может быть пустым")
+	ErrInvalidUUID       = errors.New("неверный формат uuid")
+	ErrOutOfStock        = errors.New("деталь отсутствует на складе")
+	ErrNothingToRelease  = errors.New("нечего освобождать")
+	ErrIncompatibleParts = errors.New("детали несовместимы")
+	ErrPartTypeMismatch  = errors.New("тип детали не соответствует слоту корабля")
+	ErrInvalidProperties = errors.New("некорректные свойства детали")
 )
 
 // IsInvalidUUID возвращает true для ошибок разбора UUID.

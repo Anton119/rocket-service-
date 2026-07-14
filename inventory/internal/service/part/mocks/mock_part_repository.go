@@ -10,6 +10,7 @@ import (
 	"context"
 
 	"github.com/Anton119/rocket-service-/inventory/internal/model"
+	"github.com/Anton119/rocket-service-/inventory/internal/service/input"
 	"github.com/google/uuid"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -107,76 +108,127 @@ func (_c *PartRepository_Get_Call) RunAndReturn(run func(ctx context.Context, id
 	return _c
 }
 
-// ListParts provides a mock function for the type PartRepository
-func (_mock *PartRepository) ListParts(ctx context.Context, partType model.PartType, ids []uuid.UUID) ([]model.Part, error) {
-	ret := _mock.Called(ctx, partType, ids)
+// List provides a mock function for the type PartRepository
+func (_mock *PartRepository) List(ctx context.Context, filter input.PartFilter) ([]model.Part, error) {
+	ret := _mock.Called(ctx, filter)
 
 	if len(ret) == 0 {
-		panic("no return value specified for ListParts")
+		panic("no return value specified for List")
 	}
 
 	var r0 []model.Part
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, model.PartType, []uuid.UUID) ([]model.Part, error)); ok {
-		return returnFunc(ctx, partType, ids)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, input.PartFilter) ([]model.Part, error)); ok {
+		return returnFunc(ctx, filter)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, model.PartType, []uuid.UUID) []model.Part); ok {
-		r0 = returnFunc(ctx, partType, ids)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, input.PartFilter) []model.Part); ok {
+		r0 = returnFunc(ctx, filter)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]model.Part)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, model.PartType, []uuid.UUID) error); ok {
-		r1 = returnFunc(ctx, partType, ids)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, input.PartFilter) error); ok {
+		r1 = returnFunc(ctx, filter)
 	} else {
 		r1 = ret.Error(1)
 	}
 	return r0, r1
 }
 
-// PartRepository_ListParts_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListParts'
-type PartRepository_ListParts_Call struct {
+// PartRepository_List_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'List'
+type PartRepository_List_Call struct {
 	*mock.Call
 }
 
-// ListParts is a helper method to define mock.On call
+// List is a helper method to define mock.On call
 //   - ctx context.Context
-//   - partType model.PartType
-//   - ids []uuid.UUID
-func (_e *PartRepository_Expecter) ListParts(ctx interface{}, partType interface{}, ids interface{}) *PartRepository_ListParts_Call {
-	return &PartRepository_ListParts_Call{Call: _e.mock.On("ListParts", ctx, partType, ids)}
+//   - filter input.PartFilter
+func (_e *PartRepository_Expecter) List(ctx interface{}, filter interface{}) *PartRepository_List_Call {
+	return &PartRepository_List_Call{Call: _e.mock.On("List", ctx, filter)}
 }
 
-func (_c *PartRepository_ListParts_Call) Run(run func(ctx context.Context, partType model.PartType, ids []uuid.UUID)) *PartRepository_ListParts_Call {
+func (_c *PartRepository_List_Call) Run(run func(ctx context.Context, filter input.PartFilter)) *PartRepository_List_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 model.PartType
+		var arg1 input.PartFilter
 		if args[1] != nil {
-			arg1 = args[1].(model.PartType)
-		}
-		var arg2 []uuid.UUID
-		if args[2] != nil {
-			arg2 = args[2].([]uuid.UUID)
+			arg1 = args[1].(input.PartFilter)
 		}
 		run(
 			arg0,
 			arg1,
-			arg2,
 		)
 	})
 	return _c
 }
 
-func (_c *PartRepository_ListParts_Call) Return(parts []model.Part, err error) *PartRepository_ListParts_Call {
+func (_c *PartRepository_List_Call) Return(parts []model.Part, err error) *PartRepository_List_Call {
 	_c.Call.Return(parts, err)
 	return _c
 }
 
-func (_c *PartRepository_ListParts_Call) RunAndReturn(run func(ctx context.Context, partType model.PartType, ids []uuid.UUID) ([]model.Part, error)) *PartRepository_ListParts_Call {
+func (_c *PartRepository_List_Call) RunAndReturn(run func(ctx context.Context, filter input.PartFilter) ([]model.Part, error)) *PartRepository_List_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateReservedBatch provides a mock function for the type PartRepository
+func (_mock *PartRepository) UpdateReservedBatch(ctx context.Context, parts []model.Part) error {
+	ret := _mock.Called(ctx, parts)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateReservedBatch")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []model.Part) error); ok {
+		r0 = returnFunc(ctx, parts)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// PartRepository_UpdateReservedBatch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateReservedBatch'
+type PartRepository_UpdateReservedBatch_Call struct {
+	*mock.Call
+}
+
+// UpdateReservedBatch is a helper method to define mock.On call
+//   - ctx context.Context
+//   - parts []model.Part
+func (_e *PartRepository_Expecter) UpdateReservedBatch(ctx interface{}, parts interface{}) *PartRepository_UpdateReservedBatch_Call {
+	return &PartRepository_UpdateReservedBatch_Call{Call: _e.mock.On("UpdateReservedBatch", ctx, parts)}
+}
+
+func (_c *PartRepository_UpdateReservedBatch_Call) Run(run func(ctx context.Context, parts []model.Part)) *PartRepository_UpdateReservedBatch_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []model.Part
+		if args[1] != nil {
+			arg1 = args[1].([]model.Part)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *PartRepository_UpdateReservedBatch_Call) Return(err error) *PartRepository_UpdateReservedBatch_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *PartRepository_UpdateReservedBatch_Call) RunAndReturn(run func(ctx context.Context, parts []model.Part) error) *PartRepository_UpdateReservedBatch_Call {
 	_c.Call.Return(run)
 	return _c
 }
