@@ -2,6 +2,7 @@ package order
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -46,6 +47,10 @@ func (s *Service) CreateOrder(ctx context.Context, in input.CreateOrderInput) (*
 		}
 	}
 
+	if err := s.inv.ReserveParts(ctx, uuids); err != nil {
+		return nil, err
+	}
+
 	items := mergeOrderItems([]orderSlot{
 		{partUUID: hull, partType: "HULL", price: byUUID[hull.String()].Price},
 		{partUUID: engine, partType: "ENGINE", price: byUUID[engine.String()].Price},
@@ -72,6 +77,7 @@ func (s *Service) CreateOrder(ctx context.Context, in input.CreateOrderInput) (*
 
 	o := model.Order{
 		OrderUUID:  orderUUID,
+		UserUUID:   in.UserUUID,
 		Items:      items,
 		HullUUID:   hull,
 		EngineUUID: engine,
@@ -83,6 +89,9 @@ func (s *Service) CreateOrder(ctx context.Context, in input.CreateOrderInput) (*
 	o.WeaponUUID = in.WeaponUUID
 
 	if err := s.repo.Create(ctx, o); err != nil {
+		if releaseErr := s.inv.ReleaseParts(ctx, uuids); releaseErr != nil {
+			return nil, errors.Join(fmt.Errorf("сохранение заказа: %w", err), fmt.Errorf("освободить резерв: %w", releaseErr))
+		}
 		return nil, fmt.Errorf("сохранение заказа: %w", err)
 	}
 

@@ -18,9 +18,11 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 
+	invsvc "github.com/Anton119/rocket-service-/inventory/pkg/service"
 	orderapi "github.com/Anton119/rocket-service-/order/internal/api/order/v1"
 	inventorygrpc "github.com/Anton119/rocket-service-/order/internal/client/grpc/inventory/v1"
 	paymentgrpc "github.com/Anton119/rocket-service-/order/internal/client/grpc/payment/v1"
+	orderproducer "github.com/Anton119/rocket-service-/order/internal/producer/order_producer"
 	orderrepo "github.com/Anton119/rocket-service-/order/internal/repository/order"
 	ordersvc "github.com/Anton119/rocket-service-/order/internal/service/order"
 	"github.com/Anton119/rocket-service-/order/pkg/app"
@@ -39,6 +41,7 @@ const (
 	ShieldEnergyUUID   = "550e8400-e29b-41d4-a716-446655440005" // 400000 kopecks (4000 RUB)
 	WeaponLaserUUID    = "550e8400-e29b-41d4-a716-446655440006" // 250000 kopecks (2500 RUB)
 	HullOutOfStockUUID = "550e8400-e29b-41d4-a716-446655440007" // 2000000 kopecks (20000 RUB), stock=0
+	TestUserUUID       = "550e8400-e29b-41d4-a716-446655440010"
 
 	// Цены в копейках.
 	HullAluminumPrice   = 500000
@@ -89,6 +92,28 @@ func orderBaseURL() string {
 	return ts.URL
 }
 
+// resetInventoryStock восстанавливает seed-остатки и обнуляет reserved.
+func resetInventoryStock(ctx context.Context) {
+	stmts := []struct {
+		sql  string
+		args []any
+	}{
+		{`UPDATE parts SET reserved = 0`, nil},
+		{`UPDATE parts SET stock_quantity = 1000 WHERE uuid = $1`, []any{HullAluminumUUID}},
+		{`UPDATE parts SET stock_quantity = 1000 WHERE uuid = $1`, []any{HullTitaniumUUID}},
+		{`UPDATE parts SET stock_quantity = 1000 WHERE uuid = $1`, []any{EngineIonCUUID}},
+		{`UPDATE parts SET stock_quantity = 1000 WHERE uuid = $1`, []any{EngineIonBUUID}},
+		{`UPDATE parts SET stock_quantity = 1000 WHERE uuid = $1`, []any{ShieldEnergyUUID}},
+		{`UPDATE parts SET stock_quantity = 1000 WHERE uuid = $1`, []any{WeaponLaserUUID}},
+		{`UPDATE parts SET stock_quantity = 0 WHERE uuid = $1`, []any{HullOutOfStockUUID}},
+	}
+	for _, s := range stmts {
+		if _, err := invDB.Pool.Exec(ctx, s.sql, s.args...); err != nil {
+			panic(err)
+		}
+	}
+}
+
 // TestMain запускает все сервисы перед тестами и останавливает после.
 func TestMain(m *testing.M) {
 	initTestDBEnv()
@@ -110,15 +135,18 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(err)
 	}
-	unaryChain := grpc.ChainUnaryInterceptor(
-		interceptor.RecoveryInterceptor(),
-		pvUnary,
-		interceptor.LoggerInterceptor(),
-	)
+
+	// Сбрасываем stock/reserved к seed, чтобы API-тесты были детерминированы после прошлых прогонов.
+	resetInventoryStock(ctx)
 
 	// 1. Inventory gRPC через bufconn
 	invLis = bufconn.Listen(bufSize)
-	invGRPCServer := grpc.NewServer(unaryChain)
+	invGRPCServer := grpc.NewServer(grpc.ChainUnaryInterceptor(
+		interceptor.RecoveryInterceptor(),
+		pvUnary,
+		interceptor.LoggerInterceptor(),
+		invsvc.UnaryErrorInterceptor(),
+	))
 	inventoryv1.RegisterInventoryServiceServer(invGRPCServer, app.NewInventoryServer(invDB))
 	go func() {
 		if invServeErr := invGRPCServer.Serve(invLis); invServeErr != nil {
@@ -137,7 +165,11 @@ func TestMain(m *testing.M) {
 
 	// 2. Payment gRPC через bufconn
 	payLis = bufconn.Listen(bufSize)
-	payGRPCServer := grpc.NewServer(unaryChain)
+	payGRPCServer := grpc.NewServer(grpc.ChainUnaryInterceptor(
+		interceptor.RecoveryInterceptor(),
+		pvUnary,
+		interceptor.LoggerInterceptor(),
+	))
 	paymentv1.RegisterPaymentServiceServer(payGRPCServer, app.NewPaymentServer())
 	go func() {
 		if payServeErr := payGRPCServer.Serve(payLis); payServeErr != nil {
@@ -157,7 +189,7 @@ func TestMain(m *testing.M) {
 	repo := orderrepo.New(orderDB.Pool, orderDB.TxManager)
 	inv := inventorygrpc.NewClient(inventoryClient)
 	pay := paymentgrpc.NewClient(paymentClient)
-	svc := ordersvc.NewService(repo, inv, pay)
+	svc := ordersvc.NewService(repo, inv, pay, orderproducer.NoopProducer{}, orderDB.TxManager)
 	api := orderapi.NewAPI(svc)
 	orderServer, err := orderapi.NewServer(api)
 	if err != nil {
@@ -181,6 +213,7 @@ func TestMain(m *testing.M) {
 
 // CreateOrderRequest представляет тело запроса для создания заказа.
 type CreateOrderRequest struct {
+	UserUUID   string  `json:"user_uuid"`
 	HullUUID   string  `json:"hull_uuid"`
 	EngineUUID string  `json:"engine_uuid"`
 	ShieldUUID *string `json:"shield_uuid,omitempty"`
@@ -209,6 +242,7 @@ type CancelOrderResponse struct{}
 // OrderDTO представляет заказ в ответе API.
 type OrderDTO struct {
 	OrderUUID       string  `json:"order_uuid"`
+	UserUUID        string  `json:"user_uuid"`
 	HullUUID        string  `json:"hull_uuid"`
 	EngineUUID      string  `json:"engine_uuid"`
 	ShieldUUID      *string `json:"shield_uuid"`
@@ -632,6 +666,7 @@ func TestPayment_PayOrder_UniqueTransactions(t *testing.T) {
 
 func TestOrder_Create_Success_MinimalParts(t *testing.T) {
 	req := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID,
 		EngineUUID: EngineIonCUUID,
 	}
@@ -649,6 +684,7 @@ func TestOrder_Create_Success_AllParts(t *testing.T) {
 	shieldUUID := ShieldEnergyUUID
 	weaponUUID := WeaponLaserUUID
 	req := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullTitaniumUUID,
 		EngineUUID: EngineIonBUUID,
 		ShieldUUID: &shieldUUID,
@@ -668,6 +704,7 @@ func TestOrder_Create_Success_AllParts(t *testing.T) {
 
 func TestOrder_Create_VerifyTotalPrice(t *testing.T) {
 	req := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID, // 500000
 		EngineUUID: EngineIonCUUID,   // 300000
 	}
@@ -681,6 +718,7 @@ func TestOrder_Create_VerifyTotalPrice(t *testing.T) {
 
 func TestOrder_Create_HullNotFound(t *testing.T) {
 	req := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   uuid.New().String(),
 		EngineUUID: EngineIonCUUID,
 	}
@@ -693,6 +731,7 @@ func TestOrder_Create_HullNotFound(t *testing.T) {
 
 func TestOrder_Create_EngineNotFound(t *testing.T) {
 	req := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID,
 		EngineUUID: uuid.New().String(),
 	}
@@ -706,6 +745,7 @@ func TestOrder_Create_EngineNotFound(t *testing.T) {
 func TestOrder_Create_ShieldNotFound(t *testing.T) {
 	invalidShield := uuid.New().String()
 	req := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID,
 		EngineUUID: EngineIonCUUID,
 		ShieldUUID: &invalidShield,
@@ -720,6 +760,7 @@ func TestOrder_Create_ShieldNotFound(t *testing.T) {
 func TestOrder_Create_WeaponNotFound(t *testing.T) {
 	invalidWeapon := uuid.New().String()
 	req := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID,
 		EngineUUID: EngineIonCUUID,
 		WeaponUUID: &invalidWeapon,
@@ -734,6 +775,7 @@ func TestOrder_Create_WeaponNotFound(t *testing.T) {
 func TestOrder_Get_Success(t *testing.T) {
 	// Сначала создаём заказ
 	createReq := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID,
 		EngineUUID: EngineIonCUUID,
 	}
@@ -748,6 +790,7 @@ func TestOrder_Get_Success(t *testing.T) {
 	testutil.AssertHTTPStatus(t, resp, http.StatusOK)
 	require.NotNil(t, order)
 	assert.Equal(t, createResult.OrderUUID, order.OrderUUID)
+	assert.Equal(t, TestUserUUID, order.UserUUID)
 	assert.Equal(t, HullAluminumUUID, order.HullUUID)
 	assert.Equal(t, EngineIonCUUID, order.EngineUUID)
 	assert.Equal(t, createResult.TotalPrice, order.TotalPrice)
@@ -756,6 +799,7 @@ func TestOrder_Get_Success(t *testing.T) {
 func TestOrder_Get_VerifyStatus_PendingPayment(t *testing.T) {
 	// Создаём заказ
 	createReq := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID,
 		EngineUUID: EngineIonCUUID,
 	}
@@ -781,6 +825,7 @@ func TestOrder_Get_NotFound(t *testing.T) {
 func TestOrder_Pay_Success_Card(t *testing.T) {
 	// Создаём заказ
 	createReq := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID,
 		EngineUUID: EngineIonCUUID,
 	}
@@ -801,6 +846,7 @@ func TestOrder_Pay_Success_Card(t *testing.T) {
 func TestOrder_Pay_VerifyStatusChange(t *testing.T) {
 	// Создаём заказ
 	createReq := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID,
 		EngineUUID: EngineIonCUUID,
 	}
@@ -835,6 +881,7 @@ func TestOrder_Pay_NotFound(t *testing.T) {
 func TestOrder_Pay_AlreadyPaid(t *testing.T) {
 	// Создаём заказ
 	createReq := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID,
 		EngineUUID: EngineIonCUUID,
 	}
@@ -857,6 +904,7 @@ func TestOrder_Pay_AlreadyPaid(t *testing.T) {
 func TestOrder_Pay_AlreadyCancelled(t *testing.T) {
 	// Создаём заказ
 	createReq := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID,
 		EngineUUID: EngineIonCUUID,
 	}
@@ -879,6 +927,7 @@ func TestOrder_Pay_AlreadyCancelled(t *testing.T) {
 func TestOrder_Cancel_Success(t *testing.T) {
 	// Создаём заказ
 	createReq := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID,
 		EngineUUID: EngineIonCUUID,
 	}
@@ -896,6 +945,7 @@ func TestOrder_Cancel_Success(t *testing.T) {
 func TestOrder_Cancel_VerifyStatusChange(t *testing.T) {
 	// Создаём заказ
 	createReq := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID,
 		EngineUUID: EngineIonCUUID,
 	}
@@ -925,6 +975,7 @@ func TestOrder_Cancel_NotFound(t *testing.T) {
 func TestOrder_Cancel_AlreadyPaid(t *testing.T) {
 	// Создаём заказ
 	createReq := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID,
 		EngineUUID: EngineIonCUUID,
 	}
@@ -947,6 +998,7 @@ func TestOrder_Cancel_AlreadyPaid(t *testing.T) {
 func TestOrder_Cancel_AlreadyCancelled(t *testing.T) {
 	// Создаём заказ
 	createReq := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID,
 		EngineUUID: EngineIonCUUID,
 	}
@@ -970,6 +1022,7 @@ func TestOrder_Cancel_AlreadyCancelled(t *testing.T) {
 func TestOrder_Create_WithWeaponOnly(t *testing.T) {
 	weaponUUID := WeaponLaserUUID
 	req := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID,
 		EngineUUID: EngineIonCUUID,
 		WeaponUUID: &weaponUUID,
@@ -991,6 +1044,7 @@ func TestOrder_Pay_AllMethods(t *testing.T) {
 		t.Run(method, func(t *testing.T) {
 			// Создаём заказ
 			createReq := &CreateOrderRequest{
+				UserUUID:   TestUserUUID,
 				HullUUID:   HullAluminumUUID,
 				EngineUUID: EngineIonCUUID,
 			}
@@ -1020,6 +1074,7 @@ func TestOrder_Get_WithOptionalParts(t *testing.T) {
 	shieldUUID := ShieldEnergyUUID
 	weaponUUID := WeaponLaserUUID
 	req := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID,
 		EngineUUID: EngineIonCUUID,
 		ShieldUUID: &shieldUUID,
@@ -1056,6 +1111,7 @@ func TestOrder_FullLifecycle_CreatePayGet(t *testing.T) {
 	// 1. Создаём заказ
 	shieldUUID := ShieldEnergyUUID
 	createReq := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullTitaniumUUID,
 		EngineUUID: EngineIonBUUID,
 		ShieldUUID: &shieldUUID,
@@ -1095,6 +1151,7 @@ func TestOrder_FullLifecycle_CreatePayGet(t *testing.T) {
 func TestOrder_FullLifecycle_CreateCancelGet(t *testing.T) {
 	// 1. Создаём заказ
 	createReq := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID,
 		EngineUUID: EngineIonCUUID,
 	}
@@ -1124,6 +1181,7 @@ func TestOrder_FullLifecycle_AllPartsPayGet(t *testing.T) {
 	shieldUUID := ShieldEnergyUUID
 	weaponUUID := WeaponLaserUUID
 	createReq := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullTitaniumUUID,
 		EngineUUID: EngineIonBUUID,
 		ShieldUUID: &shieldUUID,
@@ -1167,6 +1225,7 @@ func TestOrder_FullLifecycle_AllPartsPayGet(t *testing.T) {
 
 func TestOrder_Create_OutOfStock(t *testing.T) {
 	req := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullOutOfStockUUID,
 		EngineUUID: EngineIonCUUID,
 	}
@@ -1185,6 +1244,7 @@ func TestOrder_Create_OutOfStock_OptionalPart(t *testing.T) {
 	// Дополнительно проверяем, что при наличии на складе всех деталей заказ создаётся.
 	shieldUUID := ShieldEnergyUUID
 	req := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID,
 		EngineUUID: EngineIonCUUID,
 		ShieldUUID: &shieldUUID,
@@ -1226,7 +1286,7 @@ func TestOrder_Create_InvalidBody_NotJSON(t *testing.T) {
 }
 
 func TestOrder_Create_InvalidBody_MissingHullUUID(t *testing.T) {
-	body := `{"engine_uuid": "` + EngineIonCUUID + `"}`
+	body := `{"user_uuid": "` + TestUserUUID + `", "engine_uuid": "` + EngineIonCUUID + `"}`
 	httpReq, err := http.NewRequest(http.MethodPost, orderBaseURL()+"/api/v1/orders", bytes.NewReader([]byte(body)))
 	require.NoError(t, err)
 	httpReq.Header.Set("Content-Type", "application/json")
@@ -1239,7 +1299,7 @@ func TestOrder_Create_InvalidBody_MissingHullUUID(t *testing.T) {
 }
 
 func TestOrder_Create_InvalidBody_MissingEngineUUID(t *testing.T) {
-	body := `{"hull_uuid": "` + HullAluminumUUID + `"}`
+	body := `{"user_uuid": "` + TestUserUUID + `", "hull_uuid": "` + HullAluminumUUID + `"}`
 	httpReq, err := http.NewRequest(http.MethodPost, orderBaseURL()+"/api/v1/orders", bytes.NewReader([]byte(body)))
 	require.NoError(t, err)
 	httpReq.Header.Set("Content-Type", "application/json")
@@ -1252,7 +1312,7 @@ func TestOrder_Create_InvalidBody_MissingEngineUUID(t *testing.T) {
 }
 
 func TestOrder_Create_InvalidBody_InvalidHullUUID(t *testing.T) {
-	body := `{"hull_uuid": "not-a-uuid", "engine_uuid": "` + EngineIonCUUID + `"}`
+	body := `{"user_uuid": "` + TestUserUUID + `", "hull_uuid": "not-a-uuid", "engine_uuid": "` + EngineIonCUUID + `"}`
 	httpReq, err := http.NewRequest(http.MethodPost, orderBaseURL()+"/api/v1/orders", bytes.NewReader([]byte(body)))
 	require.NoError(t, err)
 	httpReq.Header.Set("Content-Type", "application/json")
@@ -1288,6 +1348,7 @@ func TestOrder_Pay_InvalidUUIDInPath(t *testing.T) {
 func TestOrder_Pay_InvalidPaymentMethod(t *testing.T) {
 	// Создаём заказ
 	createReq := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID,
 		EngineUUID: EngineIonCUUID,
 	}
@@ -1313,6 +1374,7 @@ func TestOrder_Pay_InvalidPaymentMethod(t *testing.T) {
 func TestOrder_Pay_MissingPaymentMethod(t *testing.T) {
 	// Создаём заказ
 	createReq := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID,
 		EngineUUID: EngineIonCUUID,
 	}
@@ -1338,6 +1400,7 @@ func TestOrder_Pay_MissingPaymentMethod(t *testing.T) {
 func TestOrder_Pay_EmptyBody(t *testing.T) {
 	// Создаём заказ
 	createReq := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID,
 		EngineUUID: EngineIonCUUID,
 	}
@@ -1374,6 +1437,7 @@ func TestOrder_Cancel_InvalidUUIDInPath(t *testing.T) {
 func TestOrder_Create_WithShieldOnly(t *testing.T) {
 	shieldUUID := ShieldEnergyUUID
 	req := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID,
 		EngineUUID: EngineIonCUUID,
 		ShieldUUID: &shieldUUID,
@@ -1394,6 +1458,7 @@ func TestOrder_Create_WrongPartType_WeaponAsHull(t *testing.T) {
 	// Хэндлер не валидирует, что UUID корпуса действительно является корпусом.
 	// Передаём UUID оружия вместо корпуса — заказ должен создаться.
 	req := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   WeaponLaserUUID,
 		EngineUUID: EngineIonCUUID,
 	}
@@ -1410,6 +1475,7 @@ func TestOrder_Create_WrongPartType_WeaponAsHull(t *testing.T) {
 func TestOrder_Create_WrongPartType_HullAsEngine(t *testing.T) {
 	// Аналогично — UUID корпуса вместо двигателя
 	req := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID,
 		EngineUUID: HullTitaniumUUID,
 	}
@@ -1429,6 +1495,7 @@ func TestOrder_Create_DuplicateUUID_HullAndEngine(t *testing.T) {
 	// Передаём один и тот же UUID для hull и engine.
 	// ListParts вернёт 2 записи с одинаковым UUID, цена удвоится.
 	req := &CreateOrderRequest{
+		UserUUID:   TestUserUUID,
 		HullUUID:   HullAluminumUUID,
 		EngineUUID: HullAluminumUUID,
 	}

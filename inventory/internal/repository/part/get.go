@@ -14,9 +14,6 @@ import (
 	"github.com/Anton119/rocket-service-/inventory/internal/repository/record"
 )
 
-const partSelectColumns = `
-	uuid, name, description, part_type, price, stock_quantity, created_at, updated_at`
-
 // Get возвращает деталь по UUID или errs.ErrPartNotFound.
 func (r *Repository) Get(ctx context.Context, id uuid.UUID) (model.Part, error) {
 	query := `SELECT` + partSelectColumns + `

@@ -1,3 +1,4 @@
+// Package app содержит вспомогательные функции сборки OrderService для интеграционных тестов.
 package app
 
 import (

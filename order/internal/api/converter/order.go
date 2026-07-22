@@ -48,6 +48,7 @@ func OrderToDTO(order model.Order) *orderv1.OrderDto {
 
 	return &orderv1.OrderDto{
 		OrderUUID:       order.OrderUUID,
+		UserUUID:        order.UserUUID,
 		HullUUID:        order.HullUUID,
 		EngineUUID:      order.EngineUUID,
 		ShieldUUID:      shieldUUID,
@@ -63,6 +64,7 @@ func OrderToDTO(order model.Order) *orderv1.OrderDto {
 // CreateOrderInputFromRequest собирает вход use case из тела POST /orders.
 func CreateOrderInputFromRequest(req *orderv1.CreateOrderRequest) input.CreateOrderInput {
 	in := input.CreateOrderInput{
+		UserUUID:   req.GetUserUUID(),
 		HullUUID:   req.GetHullUUID(),
 		EngineUUID: req.GetEngineUUID(),
 	}

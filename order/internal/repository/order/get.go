@@ -15,10 +15,10 @@ import (
 )
 
 func (r *Repository) getOrder(ctx context.Context, id uuid.UUID) (record.Order, error) {
-	const query = `
-		SELECT uuid, status, transaction_uuid, payment_method, created_at, updated_at
+	query := fmt.Sprintf(`
+		SELECT %s
 		FROM orders
-		WHERE uuid = $1`
+		WHERE uuid = $1`, orderColumns)
 
 	rows, err := r.getter.DefaultTrOrDB(ctx, r.pool).Query(ctx, query, id)
 	if err != nil {
@@ -38,10 +38,10 @@ func (r *Repository) getOrder(ctx context.Context, id uuid.UUID) (record.Order, 
 }
 
 func (r *Repository) getOrderItems(ctx context.Context, orderUUID uuid.UUID) ([]record.OrderItem, error) {
-	const query = `
-		SELECT order_uuid, part_uuid, part_type, price
+	query := fmt.Sprintf(`
+		SELECT %s
 		FROM order_items
-		WHERE order_uuid = $1`
+		WHERE order_uuid = $1`, itemColumns)
 
 	rows, err := r.getter.DefaultTrOrDB(ctx, r.pool).Query(ctx, query, orderUUID)
 	if err != nil {

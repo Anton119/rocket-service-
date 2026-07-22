@@ -9,6 +9,7 @@ import (
 // Order — запись заказа в PostgreSQL.
 type Order struct {
 	UUID            uuid.UUID  `db:"uuid"`
+	UserUUID        uuid.UUID  `db:"user_uuid"`
 	Status          string     `db:"status"`
 	TransactionUUID *uuid.UUID `db:"transaction_uuid"`
 	PaymentMethod   *string    `db:"payment_method"`

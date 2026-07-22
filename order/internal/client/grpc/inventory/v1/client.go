@@ -47,3 +47,69 @@ func (c *Client) ListParts(ctx context.Context, uuids []string) ([]model.Part, e
 
 	return parts, nil
 }
+
+// CommitParts списывает детали со склада после сборки.
+func (c *Client) CommitParts(ctx context.Context, uuids []string) error {
+	_, err := c.grpc.CommitParts(ctx, &inventoryv1.CommitPartsRequest{Uuids: uuids})
+	if err != nil {
+		st, ok := status.FromError(err)
+		if !ok {
+			return err
+		}
+		switch st.Code() {
+		case codes.NotFound:
+			return errs.ErrPartNotFound
+		case codes.FailedPrecondition:
+			return &errs.InvalidArgumentError{Message: st.Message()}
+		case codes.InvalidArgument:
+			return &errs.InvalidArgumentError{Message: st.Message()}
+		default:
+			return err
+		}
+	}
+	return nil
+}
+
+// ReserveParts резервирует детали под заказ.
+func (c *Client) ReserveParts(ctx context.Context, uuids []string) error {
+	_, err := c.grpc.ReserveParts(ctx, &inventoryv1.ReservePartsRequest{Uuids: uuids})
+	if err != nil {
+		st, ok := status.FromError(err)
+		if !ok {
+			return err
+		}
+		switch st.Code() {
+		case codes.NotFound:
+			return errs.ErrPartNotFound
+		case codes.ResourceExhausted:
+			return errs.ErrPartOutOfStock
+		case codes.InvalidArgument:
+			return &errs.InvalidArgumentError{Message: st.Message()}
+		default:
+			return err
+		}
+	}
+	return nil
+}
+
+// ReleaseParts снимает резерв деталей (отмена заказа).
+func (c *Client) ReleaseParts(ctx context.Context, uuids []string) error {
+	_, err := c.grpc.ReleaseParts(ctx, &inventoryv1.ReleasePartsRequest{Uuids: uuids})
+	if err != nil {
+		st, ok := status.FromError(err)
+		if !ok {
+			return err
+		}
+		switch st.Code() {
+		case codes.NotFound:
+			return errs.ErrPartNotFound
+		case codes.FailedPrecondition:
+			return &errs.InvalidArgumentError{Message: st.Message()}
+		case codes.InvalidArgument:
+			return &errs.InvalidArgumentError{Message: st.Message()}
+		default:
+			return err
+		}
+	}
+	return nil
+}

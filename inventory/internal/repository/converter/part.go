@@ -20,6 +20,9 @@ func PartModelToRecord(p model.Part) (record.Part, error) {
 	if p.StockQuantity > math.MaxInt32 || p.StockQuantity < math.MinInt32 {
 		return record.Part{}, fmt.Errorf("stock_quantity вне диапазона int32: %d", p.StockQuantity)
 	}
+	if p.Reserved > math.MaxInt32 || p.Reserved < math.MinInt32 {
+		return record.Part{}, fmt.Errorf("reserved вне диапазона int32: %d", p.Reserved)
+	}
 
 	return record.Part{
 		UUID:          id,
@@ -28,6 +31,7 @@ func PartModelToRecord(p model.Part) (record.Part, error) {
 		PartType:      partTypeToString(p.PartType),
 		Price:         p.Price,
 		StockQuantity: int32(p.StockQuantity),
+		Reserved:      int32(p.Reserved),
 		CreatedAt:     p.CreatedAt,
 	}, nil
 }
@@ -40,6 +44,7 @@ func PartRecordToModel(p record.Part) model.Part {
 		Price:         p.Price,
 		PartType:      partTypeFromString(p.PartType),
 		StockQuantity: int64(p.StockQuantity),
+		Reserved:      int64(p.Reserved),
 		CreatedAt:     p.CreatedAt,
 	}
 }

@@ -3,6 +3,7 @@ type: string
 enum:
   - PENDING_PAYMENT
   - PAID
+  - ASSEMBLED
   - CANCELLED
 description: Статус заказа
 example: PENDING_PAYMENT

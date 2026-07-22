@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, master, hm2, hm3]
+    branches: [main, master, hm2, hm3, hm4, hm5]
   pull_request:
 
 env:
@@ -20,17 +20,19 @@ jobs:
         with:
           go-version: "1.26.0"
           cache-dependency-path: |
+            assembly/go.sum
             order/go.sum
             inventory/go.sum
             payment/go.sum
             shared/go.sum
+            platform/go.sum
 
       - name: Install Task
         run: go install github.com/go-task/task/v3/cmd/task@v3.41.0
 
       - name: Init Go workspace
         run: |
-          go work init ./order ./inventory ./payment ./shared
+          go work init ./assembly ./order ./inventory ./payment ./shared ./platform
           go work sync
 
       - name: Tidy modules
@@ -42,7 +44,7 @@ jobs:
       - name: Unit tests with coverage
         run: task test:coverage
 
-      - name: Start PostgreSQL
+      - name: Start PostgreSQL and Kafka
         run: |
           task up-core
           task up-inventory
@@ -70,9 +72,41 @@ jobs:
           ORDER_DB_URI: postgres://order-service-user:order-service-password@localhost:5432/order-service?sslmode=disable
         run: task test:api
 
-      - name: Stop PostgreSQL
+      - name: Stop infrastructure
         if: always()
         run: |
           task down-order || true
           task down-inventory || true
           task down-core || true
+
+  test-e2e:
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.0"
+          cache-dependency-path: |
+            assembly/go.sum
+            order/go.sum
+            inventory/go.sum
+            payment/go.sum
+            shared/go.sum
+            platform/go.sum
+
+      - name: Install Task
+        run: go install github.com/go-task/task/v3/cmd/task@v3.41.0
+
+      - name: Init Go workspace
+        run: |
+          go work init ./assembly ./order ./inventory ./payment ./shared ./platform
+          go work sync
+
+      - name: E2E tests
+        env:
+          E2E_ENABLED: "1"
+        run: task test:e2e
