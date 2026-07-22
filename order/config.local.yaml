@@ -1,20 +1,26 @@
+logger:
+  level: "info"
+
+kafka:
+  brokers:
+    - "localhost:9092"
+
+order_paid_producer:
+  topic: "order.paid"
+
+ship_assembled_consumer:
+  topic: "assembly.ship-assembled"
+  group_id: "order-service"
+
 http:
   host: "localhost"
   port: "8080"
 
 pg:
-  host: "localhost"
-  port: "5432"
-  database: "order-service"
-  user: "order-service-user"
-  password: "order-service-password"
-  sslmode: "disable"
+  uri: "postgres://order-service-user:order-service-password@localhost:5432/order-service?sslmode=disable"
 
 inventory_client:
   address: "localhost:50051"
 
 payment_client:
   address: "localhost:50052"
-
-logger:
-  level: "info"

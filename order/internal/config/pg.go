@@ -1,19 +1,16 @@
 package config
 
-import "fmt"
+import sharedconfig "github.com/Anton119/rocket-service-/shared/pkg/config"
 
 type pgConfig struct {
-	Host     string `yaml:"host" env:"POSTGRES_HOST" env-default:"localhost"`
-	Port     string `yaml:"port" env:"POSTGRES_PORT" env-default:"5432"`
-	Database string `yaml:"database" env:"POSTGRES_DB" env-default:"order-service"`
-	User     string `yaml:"user" env:"POSTGRES_USER" env-default:"order-service-user"`
-	Password string `yaml:"password" env:"POSTGRES_PASSWORD" env-default:"order-service-password"`
-	SSLMode  string `yaml:"sslmode" env:"POSTGRES_SSLMODE" env-default:"disable"`
+	URI string `yaml:"uri" env:"DB_URI" env-default:"postgres://order-service-user:order-service-password@localhost:5432/order-service?sslmode=disable"`
 }
 
-func (c *pgConfig) DSN() string {
-	return fmt.Sprintf(
-		"postgres://%s:%s@%s:%s/%s?sslmode=%s",
-		c.User, c.Password, c.Host, c.Port, c.Database, c.SSLMode,
-	)
+// DSN возвращает строку подключения к PostgreSQL.
+// Приоритет: DB_URI из env/yaml; при пустом значении — shared/pkg/config.DBURI().
+func (c *pgConfig) DSN() (string, error) {
+	if c.URI != "" {
+		return c.URI, nil
+	}
+	return sharedconfig.DBURI()
 }

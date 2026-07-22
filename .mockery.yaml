@@ -24,7 +24,7 @@ force-file-write: true
 
 # Boilerplate текст (лицензия, заголовок).
 template-data:
-  boilerplate-file: "../.mockery_boilerplate_text.txt"
+  boilerplate-file: ".mockery_boilerplate_text.txt"
 
 packages:
   # Order service
@@ -33,13 +33,13 @@ packages:
       include-interface-regex: ".*Service"
   github.com/Anton119/rocket-service-/order/internal/service/order:
     config:
-      include-interface-regex: ".*(Repository|Client)"
+      include-interface-regex: ".*(Repository|Client|Producer|TxManager)"
 
   # Inventory service
   github.com/Anton119/rocket-service-/inventory/internal/api/inventory/v1:
     config:
       include-interface-regex: ".*Service"
-  github.com/Anton119/rocket-service-/inventory/internal/service/part:
+  github.com/Anton119/rocket-service-/inventory/internal/service/application/part:
     config:
       include-interface-regex: ".*Repository"
 

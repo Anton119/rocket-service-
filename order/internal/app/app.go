@@ -3,119 +3,86 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
-	orderapi "github.com/Anton119/rocket-service-/order/internal/api/order/v1"
 	"github.com/Anton119/rocket-service-/order/internal/config"
 	"github.com/Anton119/rocket-service-/platform/pkg/closer"
 	"github.com/Anton119/rocket-service-/platform/pkg/logger"
 )
 
-const (
-	readHeaderTimeout = 5 * time.Second
-	readTimeout       = 15 * time.Second
-	writeTimeout      = 15 * time.Second
-	idleTimeout       = 60 * time.Second
-	shutdownTimeout   = 10 * time.Second
-)
-
-// App управляет жизненным циклом OrderService.
+// App — жизненный цикл OrderService.
 type App struct {
-	cfg         *config.Config
 	diContainer *diContainer
 	httpServer  *http.Server
 }
 
 // New создаёт и инициализирует приложение.
-func New(ctx context.Context, cfg *config.Config) *App {
-	a := &App{cfg: cfg}
+func New(ctx context.Context) *App {
+	a := &App{}
 	a.initDeps(ctx)
-
 	return a
 }
 
-// Run запускает HTTP-сервер и выполняет graceful shutdown по сигналу ОС.
+// Run запускает HTTP-сервер и Kafka-потребитель, обрабатывает graceful shutdown.
 func (a *App) Run() error {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	errCh := make(chan error, 1)
-	go func() { errCh <- a.runHTTPServer() }()
+	a.startGracefulShutdown(ctx, cancel)
 
-	var runErr error
-	select {
-	case runErr = <-errCh:
-	case <-ctx.Done():
-		slog.Info("получен сигнал завершения, начинаем graceful shutdown")
-	}
-	cancel()
+	errCh := make(chan error, 2)
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout) //nolint:g118 // отдельный контекст для shutdown после отмены signal ctx.
-	defer shutdownCancel()
-
-	if err := closer.CloseAll(shutdownCtx); err != nil {
-		slog.Error("ошибка при завершении работы", "error", err)
-		if runErr == nil {
-			runErr = err
+	go func() {
+		slog.Info("🚀 HTTP-сервер запущен", "address", config.AppConfig().HTTP.Address())
+		listenErr := a.httpServer.ListenAndServe()
+		if listenErr != nil && !errors.Is(listenErr, http.ErrServerClosed) {
+			errCh <- listenErr
 		}
-	}
+	}()
 
-	return runErr
+	go func() {
+		slog.Info("Kafka-потребитель ShipAssembled запущен",
+			"topic", config.AppConfig().ShipAssembledConsumer.TopicName(),
+			"group", config.AppConfig().ShipAssembledConsumer.ConsumerGroupID(),
+		)
+		if consErr := a.diContainer.AssemblyConsumerService().RunConsumer(ctx); consErr != nil && ctx.Err() == nil {
+			errCh <- fmt.Errorf("потребитель упал: %w", consErr)
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil
+	case err := <-errCh:
+		return err
+	}
 }
 
 func (a *App) initDeps(ctx context.Context) {
-	inits := []func(context.Context){
-		a.initDI,
-		a.initLogger,
-		a.initHTTPServer,
-	}
-
-	for _, f := range inits {
-		f(ctx)
-	}
+	a.diContainer = &diContainer{}
+	logger.Init(config.AppConfig().Logger.Level)
+	a.httpServer = a.diContainer.HTTPServer(ctx)
 }
 
-func (a *App) initDI(_ context.Context) {
-	a.diContainer = &diContainer{cfg: a.cfg}
-}
+func (a *App) startGracefulShutdown(ctx context.Context, cancel context.CancelFunc) {
+	go func() { //nolint:gosec // G118: ctx уже отменён, context.Background нужен для graceful shutdown.
+		<-ctx.Done()
+		cancel()
 
-func (a *App) initLogger(_ context.Context) {
-	logger.Init(a.cfg.Logger.Level)
-}
+		slog.Info("получен сигнал завершения, начинаем graceful shutdown")
 
-func (a *App) initHTTPServer(ctx context.Context) {
-	orderServer, err := orderapi.NewServer(a.diContainer.OrderAPI(ctx))
-	if err != nil {
-		slog.Error("ошибка создания HTTP-сервера OpenAPI", "error", err)
-		os.Exit(1)
-	}
+		shutdownCtx, shutdownCancel := context.WithTimeout(
+			context.Background(),
+			config.AppConfig().HTTP.ShutdownTimeout(),
+		)
+		defer shutdownCancel()
 
-	a.httpServer = &http.Server{
-		Addr:              a.cfg.HTTP.Address(),
-		Handler:           orderServer,
-		ReadHeaderTimeout: readHeaderTimeout,
-		ReadTimeout:       readTimeout,
-		WriteTimeout:      writeTimeout,
-		IdleTimeout:       idleTimeout,
-	}
-
-	closer.Add("HTTP server", func(shutdownCtx context.Context) error {
-		return a.httpServer.Shutdown(shutdownCtx)
-	})
-}
-
-func (a *App) runHTTPServer() error {
-	slog.Info("HTTP-сервер запущен", "address", a.cfg.HTTP.Address())
-
-	err := a.httpServer.ListenAndServe()
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return err
-	}
-
-	return nil
+		if err := closer.CloseAll(shutdownCtx); err != nil {
+			slog.Error("ошибка при завершении работы", "error", err)
+		}
+	}()
 }

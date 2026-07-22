@@ -8,6 +8,7 @@ import (
 func OrderToRecord(o model.Order) record.Order {
 	return record.Order{
 		UUID:            o.OrderUUID,
+		UserUUID:        o.UserUUID,
 		Status:          string(o.Status),
 		TransactionUUID: o.TransactionUUID,
 		PaymentMethod:   o.PaymentMethod,
@@ -35,6 +36,7 @@ func OrderToModel(rec record.Order, items []record.OrderItem) model.Order {
 
 	o := model.Order{
 		OrderUUID:       rec.UUID,
+		UserUUID:        rec.UserUUID,
 		Status:          model.OrderStatus(rec.Status),
 		TransactionUUID: rec.TransactionUUID,
 		PaymentMethod:   rec.PaymentMethod,

@@ -15,7 +15,6 @@ type Part struct {
 	Price         int64      `db:"price"`
 	StockQuantity int32      `db:"stock_quantity"`
 	Reserved      int32      `db:"reserved"`
-	Properties    []byte     `db:"properties"`
 	CreatedAt     time.Time  `db:"created_at"`
 	UpdatedAt     *time.Time `db:"updated_at"`
 }

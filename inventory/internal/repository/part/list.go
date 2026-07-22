@@ -11,19 +11,20 @@ import (
 	"github.com/Anton119/rocket-service-/inventory/internal/model"
 	repoconv "github.com/Anton119/rocket-service-/inventory/internal/repository/converter"
 	"github.com/Anton119/rocket-service-/inventory/internal/repository/record"
-	"github.com/Anton119/rocket-service-/inventory/internal/service/input"
 )
 
-const partSelectColumns = `
-	uuid, name, description, part_type, price, stock_quantity, reserved, properties, created_at, updated_at`
-
-// List возвращает детали по фильтру.
-func (r *Repository) List(ctx context.Context, filter input.PartFilter) ([]model.Part, error) {
-	if len(filter.UUIDs) > 0 {
-		return r.listPartsByIDs(ctx, filter.UUIDs)
+// ListParts возвращает детали по списку ids (если ids непустой — порядок как в ids).
+// Если ids пустой — выборка по partType и сортировка по имени.
+func (r *Repository) ListParts(
+	ctx context.Context,
+	partType model.PartType,
+	ids []uuid.UUID,
+) ([]model.Part, error) {
+	if len(ids) > 0 {
+		return r.listPartsByIDs(ctx, ids)
 	}
 
-	return r.listPartsByType(ctx, filter.PartType)
+	return r.listPartsByType(ctx, partType)
 }
 
 func (r *Repository) listPartsByIDs(ctx context.Context, ids []uuid.UUID) ([]model.Part, error) {
@@ -53,13 +54,7 @@ func (r *Repository) listPartsByIDs(ctx context.Context, ids []uuid.UUID) ([]mod
 		if !ok {
 			return nil, errs.ErrPartNotFound
 		}
-
-		part, err := repoconv.PartRecordToModel(rec)
-		if err != nil {
-			return nil, err
-		}
-
-		out = append(out, part)
+		out = append(out, repoconv.PartRecordToModel(rec))
 	}
 
 	return out, nil
@@ -94,5 +89,10 @@ func (r *Repository) listPartsByType(ctx context.Context, partType model.PartTyp
 		return nil, fmt.Errorf("получить детали: %w", err)
 	}
 
-	return repoconv.PartRecordsToModels(recs)
+	out := make([]model.Part, 0, len(recs))
+	for _, rec := range recs {
+		out = append(out, repoconv.PartRecordToModel(rec))
+	}
+
+	return out, nil
 }

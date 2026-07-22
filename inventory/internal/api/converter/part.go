@@ -21,9 +21,9 @@ func ListPartsInputFromRequest(req *inventoryv1.ListPartsRequest) (input.ListPar
 
 	ids := make([]uuid.UUID, 0, len(req.GetUuids()))
 	for _, idStr := range req.GetUuids() {
-		id, err := ParsePartUUID(idStr)
+		id, err := uuid.Parse(idStr)
 		if err != nil {
-			return input.ListPartsInput{}, err
+			return input.ListPartsInput{}, errs.ErrInvalidUUID
 		}
 		ids = append(ids, id)
 	}
@@ -32,62 +32,11 @@ func ListPartsInputFromRequest(req *inventoryv1.ListPartsRequest) (input.ListPar
 	return in, nil
 }
 
-// ShipSlotsFromRequest собирает слоты корабля из rpc ValidateCompatibility.
-func ShipSlotsFromRequest(req *inventoryv1.ValidateCompatibilityRequest) (model.ShipSlots, error) {
-	hullUUID, err := ParsePartUUID(req.GetHullUuid())
-	if err != nil {
-		return model.ShipSlots{}, err
-	}
-
-	engineUUID, err := ParsePartUUID(req.GetEngineUuid())
-	if err != nil {
-		return model.ShipSlots{}, err
-	}
-
-	slots := model.ShipSlots{
-		HullUUID:   hullUUID,
-		EngineUUID: engineUUID,
-	}
-
-	if req.GetShieldUuid() != "" {
-		shieldUUID, parseErr := ParsePartUUID(req.GetShieldUuid())
-		if parseErr != nil {
-			return model.ShipSlots{}, parseErr
-		}
-		slots.ShieldUUID = &shieldUUID
-	}
-
-	if req.GetWeaponUuid() != "" {
-		weaponUUID, parseErr := ParsePartUUID(req.GetWeaponUuid())
-		if parseErr != nil {
-			return model.ShipSlots{}, parseErr
-		}
-		slots.WeaponUUID = &weaponUUID
-	}
-
-	return slots, nil
-}
-
-// UUIDsFromStrings разбирает список UUID из rpc Reserve/Release.
-func UUIDsFromStrings(ids []string) ([]uuid.UUID, error) {
-	out := make([]uuid.UUID, 0, len(ids))
-	for _, idStr := range ids {
-		id, err := ParsePartUUID(idStr)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, id)
-	}
-
-	return out, nil
-}
-
-// ParsePartUUID разбирает строковый UUID из rpc.
+// ParsePartUUID разбирает строковый UUID из rpc GetPart.
 func ParsePartUUID(s string) (uuid.UUID, error) {
 	if s == "" {
 		return uuid.Nil, errs.ErrEmptyUUID
 	}
-
 	id, err := uuid.Parse(s)
 	if err != nil {
 		return uuid.Nil, errs.ErrInvalidUUID
@@ -99,13 +48,13 @@ func ParsePartUUID(s string) (uuid.UUID, error) {
 // PartToProto переводит доменную модель в protobuf Part.
 func PartToProto(p model.Part) *inventoryv1.Part {
 	return &inventoryv1.Part{
-		Uuid:          p.UUID().String(),
-		Name:          p.Name(),
-		Description:   p.Description(),
-		Price:         p.Price(),
-		PartType:      PartTypeToProto(p.PartType()),
-		StockQuantity: int64(p.StockQuantity()),
-		CreatedAt:     timestamppb.New(p.CreatedAt()),
+		Uuid:          p.UUID,
+		Name:          p.Name,
+		Description:   p.Description,
+		Price:         p.Price,
+		PartType:      inventoryv1.PartType(p.PartType),
+		StockQuantity: p.StockQuantity,
+		CreatedAt:     timestamppb.New(p.CreatedAt),
 	}
 }
 
@@ -121,32 +70,5 @@ func PartsToProto(parts []model.Part) []*inventoryv1.Part {
 
 // PartTypeFromProto переводит protobuf enum в доменный тип.
 func PartTypeFromProto(p inventoryv1.PartType) model.PartType {
-	switch p {
-	case inventoryv1.PartType_PART_TYPE_HULL:
-		return model.PartTypeHull
-	case inventoryv1.PartType_PART_TYPE_ENGINE:
-		return model.PartTypeEngine
-	case inventoryv1.PartType_PART_TYPE_SHIELD:
-		return model.PartTypeShield
-	case inventoryv1.PartType_PART_TYPE_WEAPON:
-		return model.PartTypeWeapon
-	default:
-		return model.PartTypeUnspecified
-	}
-}
-
-// PartTypeToProto переводит доменный тип в protobuf enum.
-func PartTypeToProto(t model.PartType) inventoryv1.PartType {
-	switch t {
-	case model.PartTypeHull:
-		return inventoryv1.PartType_PART_TYPE_HULL
-	case model.PartTypeEngine:
-		return inventoryv1.PartType_PART_TYPE_ENGINE
-	case model.PartTypeShield:
-		return inventoryv1.PartType_PART_TYPE_SHIELD
-	case model.PartTypeWeapon:
-		return inventoryv1.PartType_PART_TYPE_WEAPON
-	default:
-		return inventoryv1.PartType_PART_TYPE_UNSPECIFIED
-	}
+	return model.PartType(p)
 }

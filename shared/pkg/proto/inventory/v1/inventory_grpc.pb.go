@@ -24,24 +24,29 @@ const (
 	InventoryService_ValidateCompatibility_FullMethodName = "/inventory.v1.InventoryService/ValidateCompatibility"
 	InventoryService_ReserveParts_FullMethodName          = "/inventory.v1.InventoryService/ReserveParts"
 	InventoryService_ReleaseParts_FullMethodName          = "/inventory.v1.InventoryService/ReleaseParts"
+	InventoryService_CommitParts_FullMethodName           = "/inventory.v1.InventoryService/CommitParts"
 )
 
 // InventoryServiceClient is the client API for InventoryService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// InventoryService управляет каталогом деталей для космических кораблей
+// InventoryService управляет каталогом деталей для космических кораблей.
 type InventoryServiceClient interface {
-	// GetPart возвращает деталь по UUID
+	// GetPart возвращает деталь по UUID.
 	GetPart(ctx context.Context, in *GetPartRequest, opts ...grpc.CallOption) (*GetPartResponse, error)
-	// ListParts возвращает список деталей с опциональной фильтрацией
+	// ListParts возвращает список деталей с опциональной фильтрацией.
 	ListParts(ctx context.Context, in *ListPartsRequest, opts ...grpc.CallOption) (*ListPartsResponse, error)
-	// ValidateCompatibility проверяет совместимость деталей между собой
+	// ValidateCompatibility проверяет совместимость деталей между собой.
 	ValidateCompatibility(ctx context.Context, in *ValidateCompatibilityRequest, opts ...grpc.CallOption) (*ValidateCompatibilityResponse, error)
-	// ReserveParts резервирует детали для заказа
+	// ReserveParts резервирует детали для заказа.
 	ReserveParts(ctx context.Context, in *ReservePartsRequest, opts ...grpc.CallOption) (*ReservePartsResponse, error)
-	// ReleaseParts освобождает ранее зарезервированные детали
+	// ReleaseParts освобождает ранее зарезервированные детали.
 	ReleaseParts(ctx context.Context, in *ReleasePartsRequest, opts ...grpc.CallOption) (*ReleasePartsResponse, error)
+	// CommitParts списывает детали со склада после успешной сборки корабля.
+	// Вызывается OrderService после получения события ShipAssembled из Kafka.
+	// stock -= 1, reserved -= 1 для каждой детали.
+	CommitParts(ctx context.Context, in *CommitPartsRequest, opts ...grpc.CallOption) (*CommitPartsResponse, error)
 }
 
 type inventoryServiceClient struct {
@@ -102,22 +107,36 @@ func (c *inventoryServiceClient) ReleaseParts(ctx context.Context, in *ReleasePa
 	return out, nil
 }
 
+func (c *inventoryServiceClient) CommitParts(ctx context.Context, in *CommitPartsRequest, opts ...grpc.CallOption) (*CommitPartsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommitPartsResponse)
+	err := c.cc.Invoke(ctx, InventoryService_CommitParts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // InventoryServiceServer is the server API for InventoryService service.
 // All implementations must embed UnimplementedInventoryServiceServer
 // for forward compatibility.
 //
-// InventoryService управляет каталогом деталей для космических кораблей
+// InventoryService управляет каталогом деталей для космических кораблей.
 type InventoryServiceServer interface {
-	// GetPart возвращает деталь по UUID
+	// GetPart возвращает деталь по UUID.
 	GetPart(context.Context, *GetPartRequest) (*GetPartResponse, error)
-	// ListParts возвращает список деталей с опциональной фильтрацией
+	// ListParts возвращает список деталей с опциональной фильтрацией.
 	ListParts(context.Context, *ListPartsRequest) (*ListPartsResponse, error)
-	// ValidateCompatibility проверяет совместимость деталей между собой
+	// ValidateCompatibility проверяет совместимость деталей между собой.
 	ValidateCompatibility(context.Context, *ValidateCompatibilityRequest) (*ValidateCompatibilityResponse, error)
-	// ReserveParts резервирует детали для заказа
+	// ReserveParts резервирует детали для заказа.
 	ReserveParts(context.Context, *ReservePartsRequest) (*ReservePartsResponse, error)
-	// ReleaseParts освобождает ранее зарезервированные детали
+	// ReleaseParts освобождает ранее зарезервированные детали.
 	ReleaseParts(context.Context, *ReleasePartsRequest) (*ReleasePartsResponse, error)
+	// CommitParts списывает детали со склада после успешной сборки корабля.
+	// Вызывается OrderService после получения события ShipAssembled из Kafka.
+	// stock -= 1, reserved -= 1 для каждой детали.
+	CommitParts(context.Context, *CommitPartsRequest) (*CommitPartsResponse, error)
 	mustEmbedUnimplementedInventoryServiceServer()
 }
 
@@ -142,6 +161,9 @@ func (UnimplementedInventoryServiceServer) ReserveParts(context.Context, *Reserv
 }
 func (UnimplementedInventoryServiceServer) ReleaseParts(context.Context, *ReleasePartsRequest) (*ReleasePartsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ReleaseParts not implemented")
+}
+func (UnimplementedInventoryServiceServer) CommitParts(context.Context, *CommitPartsRequest) (*CommitPartsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CommitParts not implemented")
 }
 func (UnimplementedInventoryServiceServer) mustEmbedUnimplementedInventoryServiceServer() {}
 func (UnimplementedInventoryServiceServer) testEmbeddedByValue()                          {}
@@ -254,6 +276,24 @@ func _InventoryService_ReleaseParts_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _InventoryService_CommitParts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CommitPartsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventoryServiceServer).CommitParts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventoryService_CommitParts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventoryServiceServer).CommitParts(ctx, req.(*CommitPartsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // InventoryService_ServiceDesc is the grpc.ServiceDesc for InventoryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -280,6 +320,10 @@ var InventoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReleaseParts",
 			Handler:    _InventoryService_ReleaseParts_Handler,
+		},
+		{
+			MethodName: "CommitParts",
+			Handler:    _InventoryService_CommitParts_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

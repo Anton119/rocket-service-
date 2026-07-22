@@ -12,11 +12,12 @@ func (r *Repository) createOrder(ctx context.Context, order model.Order) error {
 	rec := repoconv.OrderToRecord(order)
 
 	const query = `
-		INSERT INTO orders (uuid, status, created_at)
-		VALUES ($1, $2, $3)`
+		INSERT INTO orders (uuid, user_uuid, status, created_at)
+		VALUES ($1, $2, $3, $4)`
 
 	_, err := r.getter.DefaultTrOrDB(ctx, r.pool).Exec(ctx, query,
 		rec.UUID,
+		rec.UserUUID,
 		rec.Status,
 		rec.CreatedAt,
 	)

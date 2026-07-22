@@ -11,12 +11,23 @@ const (
 	maxHullStrength = 200
 )
 
-// HullProperties — свойства корпуса.
+// HullProperties — прочность корпуса.
 type HullProperties struct {
 	strength int
 }
 
-// NewHullProperties создаёт свойства корпуса с валидацией.
+// Strength возвращает прочность корпуса.
+func (h *HullProperties) Strength() int { return h.strength }
+
+// CanSupport проверяет, выдержит ли корпус нагрузку двигателя.
+func (h *HullProperties) CanSupport(e *EngineProperties) bool {
+	if h == nil || e == nil {
+		return false
+	}
+	return h.strength >= e.RequiredStrength()
+}
+
+// NewHullProperties создаёт свойства корпуса с валидацией диапазона.
 func NewHullProperties(strength int) (PartProperties, error) {
 	if strength < minHullStrength || strength > maxHullStrength {
 		return PartProperties{}, fmt.Errorf(
@@ -24,13 +35,5 @@ func NewHullProperties(strength int) (PartProperties, error) {
 			strength, minHullStrength, maxHullStrength, errs.ErrInvalidProperties,
 		)
 	}
-
-	return PartProperties{hull: &HullProperties{strength: strength}}, nil
-}
-
-func (h *HullProperties) Strength() int { return h.strength }
-
-// CanSupport проверяет, выдержит ли корпус нагрузку двигателя.
-func (h *HullProperties) CanSupport(e *EngineProperties) bool {
-	return h.strength >= e.requiredStrength
+	return NewPartProperties(&HullProperties{strength: strength}, nil, nil, nil), nil
 }

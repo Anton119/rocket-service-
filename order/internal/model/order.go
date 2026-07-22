@@ -12,6 +12,7 @@ type OrderStatus string
 const (
 	OrderStatusPendingPayment OrderStatus = "PENDING_PAYMENT"
 	OrderStatusPaid           OrderStatus = "PAID"
+	OrderStatusAssembled      OrderStatus = "ASSEMBLED"
 	OrderStatusCancelled      OrderStatus = "CANCELLED"
 )
 
@@ -25,6 +26,7 @@ type OrderItem struct {
 // Order — заказ на постройку космического корабля.
 type Order struct {
 	OrderUUID       uuid.UUID
+	UserUUID        uuid.UUID
 	Items           []OrderItem
 	HullUUID        uuid.UUID
 	EngineUUID      uuid.UUID

@@ -2,6 +2,7 @@ package order
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -10,37 +11,54 @@ import (
 	"github.com/Anton119/rocket-service-/order/internal/service/input"
 )
 
-// PayOrder проверяет статус, вызывает оплату и фиксирует PAID.
+// PayOrder в одной транзакции: FOR UPDATE → Payment → UPDATE PAID → OrderPaid в Kafka.
 func (s *Service) PayOrder(ctx context.Context, in input.PayOrderInput) (uuid.UUID, error) {
 	if in.Method == model.PaymentMethodInvalid {
 		return uuid.Nil, errs.ErrInvalidPaymentMethod
 	}
 
-	stored, err := s.repo.Get(ctx, in.OrderUUID)
+	var txID uuid.UUID
+
+	err := s.txManager.Do(ctx, func(txCtx context.Context) error {
+		stored, err := s.repo.GetForUpdate(txCtx, in.OrderUUID)
+		if err != nil {
+			return err
+		}
+
+		switch stored.Status {
+		case model.OrderStatusPaid, model.OrderStatusCancelled, model.OrderStatusAssembled:
+			return errs.ErrOrderPayNotAllowed
+		case model.OrderStatusPendingPayment:
+			// ok
+		default:
+			return errs.ErrOrderPayNotAllowed
+		}
+
+		paidTxID, err := s.pay.PayOrder(txCtx, in.OrderUUID.String(), in.Method)
+		if err != nil {
+			return err
+		}
+		txID = paidTxID
+
+		stored.Status = model.OrderStatusPaid
+		stored.TransactionUUID = &txID
+		pm := in.PaymentMethodStored
+		stored.PaymentMethod = &pm
+
+		if err := s.repo.Save(txCtx, stored); err != nil {
+			return err
+		}
+
+		return s.orderPaid.Produce(txCtx, model.OrderPaidEvent{
+			EventUUID:       uuid.New().String(),
+			OrderUUID:       stored.OrderUUID.String(),
+			TransactionUUID: txID.String(),
+			PaymentMethod:   pm,
+			UserUUID:        stored.UserUUID.String(),
+			PaidAt:          time.Now().UTC(),
+		})
+	})
 	if err != nil {
-		return uuid.Nil, err
-	}
-
-	switch stored.Status {
-	case model.OrderStatusPaid, model.OrderStatusCancelled:
-		return uuid.Nil, errs.ErrOrderPayNotAllowed
-	case model.OrderStatusPendingPayment:
-		// ok
-	default:
-		return uuid.Nil, errs.ErrOrderPayNotAllowed
-	}
-
-	txID, err := s.pay.PayOrder(ctx, in.OrderUUID.String(), in.Method)
-	if err != nil {
-		return uuid.Nil, err
-	}
-
-	stored.Status = model.OrderStatusPaid
-	stored.TransactionUUID = &txID
-	pm := in.PaymentMethodStored
-	stored.PaymentMethod = &pm
-
-	if err := s.repo.Save(ctx, stored); err != nil {
 		return uuid.Nil, err
 	}
 

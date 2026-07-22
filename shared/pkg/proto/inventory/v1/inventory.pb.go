@@ -7,7 +7,6 @@
 package inventoryv1
 
 import (
-	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -23,19 +22,19 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Тип детали
+// PartType тип детали.
 type PartType int32
 
 const (
-	// Не указан
+	// PART_TYPE_UNSPECIFIED не указан.
 	PartType_PART_TYPE_UNSPECIFIED PartType = 0
-	// Корпус
+	// PART_TYPE_HULL корпус.
 	PartType_PART_TYPE_HULL PartType = 1
-	// Двигатель
+	// PART_TYPE_ENGINE двигатель.
 	PartType_PART_TYPE_ENGINE PartType = 2
-	// Щит
+	// PART_TYPE_SHIELD щит.
 	PartType_PART_TYPE_SHIELD PartType = 3
-	// Оружие
+	// PART_TYPE_WEAPON оружие.
 	PartType_PART_TYPE_WEAPON PartType = 4
 )
 
@@ -84,22 +83,22 @@ func (PartType) EnumDescriptor() ([]byte, []int) {
 	return file_inventory_v1_inventory_proto_rawDescGZIP(), []int{0}
 }
 
-// Part представляет деталь космического корабля
+// Part представляет деталь космического корабля.
 type Part struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Уникальный идентификатор детали
+	// uuid уникальный идентификатор детали.
 	Uuid string `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
-	// Название детали
+	// name название детали.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// Описание детали
+	// description описание детали.
 	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	// Цена в копейках (5000₽ = 500000)
+	// price цена в копейках (5000₽ = 500000).
 	Price int64 `protobuf:"varint,4,opt,name=price,proto3" json:"price,omitempty"`
-	// Тип детали
+	// part_type тип детали.
 	PartType PartType `protobuf:"varint,5,opt,name=part_type,json=partType,proto3,enum=inventory.v1.PartType" json:"part_type,omitempty"`
-	// Количество на складе
+	// stock_quantity количество на складе.
 	StockQuantity int64 `protobuf:"varint,6,opt,name=stock_quantity,json=stockQuantity,proto3" json:"stock_quantity,omitempty"`
-	// Дата создания
+	// created_at дата создания.
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -184,10 +183,10 @@ func (x *Part) GetCreatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
-// Запрос на получение детали по UUID
+// GetPartRequest запрос на получение детали по UUID.
 type GetPartRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// UUID детали
+	// uuid идентификатор детали.
 	Uuid          string `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -230,10 +229,10 @@ func (x *GetPartRequest) GetUuid() string {
 	return ""
 }
 
-// Ответ с деталью
+// GetPartResponse ответ с деталью.
 type GetPartResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Найденная деталь
+	// part найденная деталь.
 	Part          *Part `protobuf:"bytes,1,opt,name=part,proto3" json:"part,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -276,12 +275,12 @@ func (x *GetPartResponse) GetPart() *Part {
 	return nil
 }
 
-// Запрос на получение списка деталей
+// ListPartsRequest запрос на получение списка деталей.
 type ListPartsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Фильтр по типу детали
+	// part_type фильтр по типу детали.
 	PartType PartType `protobuf:"varint,1,opt,name=part_type,json=partType,proto3,enum=inventory.v1.PartType" json:"part_type,omitempty"`
-	// Фильтр по UUID
+	// uuids фильтр по UUID.
 	Uuids         []string `protobuf:"bytes,2,rep,name=uuids,proto3" json:"uuids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -331,10 +330,10 @@ func (x *ListPartsRequest) GetUuids() []string {
 	return nil
 }
 
-// Ответ со списком деталей
+// ListPartsResponse ответ со списком деталей.
 type ListPartsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Список деталей
+	// parts список деталей.
 	Parts         []*Part `protobuf:"bytes,1,rep,name=parts,proto3" json:"parts,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -377,13 +376,11 @@ func (x *ListPartsResponse) GetParts() []*Part {
 	return nil
 }
 
-// Запрос на проверку совместимости деталей
+// ValidateCompatibilityRequest запрос на проверку совместимости деталей.
 type ValidateCompatibilityRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	HullUuid      string                 `protobuf:"bytes,1,opt,name=hull_uuid,json=hullUuid,proto3" json:"hull_uuid,omitempty"`
-	EngineUuid    string                 `protobuf:"bytes,2,opt,name=engine_uuid,json=engineUuid,proto3" json:"engine_uuid,omitempty"`
-	ShieldUuid    string                 `protobuf:"bytes,3,opt,name=shield_uuid,json=shieldUuid,proto3" json:"shield_uuid,omitempty"` // опциональный, "" = слот не используется
-	WeaponUuid    string                 `protobuf:"bytes,4,opt,name=weapon_uuid,json=weaponUuid,proto3" json:"weapon_uuid,omitempty"` // опциональный, "" = слот не используется
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// uuids идентификаторы деталей для проверки.
+	Uuids         []string `protobuf:"bytes,1,rep,name=uuids,proto3" json:"uuids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -418,35 +415,14 @@ func (*ValidateCompatibilityRequest) Descriptor() ([]byte, []int) {
 	return file_inventory_v1_inventory_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *ValidateCompatibilityRequest) GetHullUuid() string {
+func (x *ValidateCompatibilityRequest) GetUuids() []string {
 	if x != nil {
-		return x.HullUuid
+		return x.Uuids
 	}
-	return ""
+	return nil
 }
 
-func (x *ValidateCompatibilityRequest) GetEngineUuid() string {
-	if x != nil {
-		return x.EngineUuid
-	}
-	return ""
-}
-
-func (x *ValidateCompatibilityRequest) GetShieldUuid() string {
-	if x != nil {
-		return x.ShieldUuid
-	}
-	return ""
-}
-
-func (x *ValidateCompatibilityRequest) GetWeaponUuid() string {
-	if x != nil {
-		return x.WeaponUuid
-	}
-	return ""
-}
-
-// Ответ на проверку совместимости (пустой — значит совместимы)
+// ValidateCompatibilityResponse ответ на проверку совместимости (пустой — значит совместимы).
 type ValidateCompatibilityResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -483,10 +459,10 @@ func (*ValidateCompatibilityResponse) Descriptor() ([]byte, []int) {
 	return file_inventory_v1_inventory_proto_rawDescGZIP(), []int{6}
 }
 
-// Запрос на резервирование деталей
+// ReservePartsRequest запрос на резервирование деталей.
 type ReservePartsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// UUID деталей для резервирования
+	// uuids идентификаторы деталей для резервирования.
 	Uuids         []string `protobuf:"bytes,1,rep,name=uuids,proto3" json:"uuids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -529,7 +505,7 @@ func (x *ReservePartsRequest) GetUuids() []string {
 	return nil
 }
 
-// Ответ на резервирование (пустой — значит успешно)
+// ReservePartsResponse ответ на резервирование (пустой — значит успешно).
 type ReservePartsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -566,10 +542,10 @@ func (*ReservePartsResponse) Descriptor() ([]byte, []int) {
 	return file_inventory_v1_inventory_proto_rawDescGZIP(), []int{8}
 }
 
-// Запрос на освобождение ранее зарезервированных деталей
+// ReleasePartsRequest запрос на освобождение ранее зарезервированных деталей.
 type ReleasePartsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// UUID деталей для освобождения
+	// uuids идентификаторы деталей для освобождения.
 	Uuids         []string `protobuf:"bytes,1,rep,name=uuids,proto3" json:"uuids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -612,7 +588,7 @@ func (x *ReleasePartsRequest) GetUuids() []string {
 	return nil
 }
 
-// Ответ на освобождение (пустой — значит успешно)
+// ReleasePartsResponse ответ на освобождение (пустой — значит успешно).
 type ReleasePartsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -649,11 +625,94 @@ func (*ReleasePartsResponse) Descriptor() ([]byte, []int) {
 	return file_inventory_v1_inventory_proto_rawDescGZIP(), []int{10}
 }
 
+// CommitPartsRequest запрос на списание деталей со склада.
+type CommitPartsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// uuids идентификаторы деталей для списания.
+	Uuids         []string `protobuf:"bytes,1,rep,name=uuids,proto3" json:"uuids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CommitPartsRequest) Reset() {
+	*x = CommitPartsRequest{}
+	mi := &file_inventory_v1_inventory_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CommitPartsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CommitPartsRequest) ProtoMessage() {}
+
+func (x *CommitPartsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_inventory_v1_inventory_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CommitPartsRequest.ProtoReflect.Descriptor instead.
+func (*CommitPartsRequest) Descriptor() ([]byte, []int) {
+	return file_inventory_v1_inventory_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *CommitPartsRequest) GetUuids() []string {
+	if x != nil {
+		return x.Uuids
+	}
+	return nil
+}
+
+// CommitPartsResponse ответ на списание (пустой — значит успешно).
+type CommitPartsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CommitPartsResponse) Reset() {
+	*x = CommitPartsResponse{}
+	mi := &file_inventory_v1_inventory_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CommitPartsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CommitPartsResponse) ProtoMessage() {}
+
+func (x *CommitPartsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_inventory_v1_inventory_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CommitPartsResponse.ProtoReflect.Descriptor instead.
+func (*CommitPartsResponse) Descriptor() ([]byte, []int) {
+	return file_inventory_v1_inventory_proto_rawDescGZIP(), []int{12}
+}
+
 var File_inventory_v1_inventory_proto protoreflect.FileDescriptor
 
 const file_inventory_v1_inventory_proto_rawDesc = "" +
 	"\n" +
-	"\x1cinventory/v1/inventory.proto\x12\finventory.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xfd\x01\n" +
+	"\x1cinventory/v1/inventory.proto\x12\finventory.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xfd\x01\n" +
 	"\x04Part\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -662,46 +721,41 @@ const file_inventory_v1_inventory_proto_rawDesc = "" +
 	"\tpart_type\x18\x05 \x01(\x0e2\x16.inventory.v1.PartTypeR\bpartType\x12%\n" +
 	"\x0estock_quantity\x18\x06 \x01(\x03R\rstockQuantity\x129\n" +
 	"\n" +
-	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\".\n" +
-	"\x0eGetPartRequest\x12\x1c\n" +
-	"\x04uuid\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x04uuid\"9\n" +
+	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"$\n" +
+	"\x0eGetPartRequest\x12\x12\n" +
+	"\x04uuid\x18\x01 \x01(\tR\x04uuid\"9\n" +
 	"\x0fGetPartResponse\x12&\n" +
-	"\x04part\x18\x01 \x01(\v2\x12.inventory.v1.PartR\x04part\"l\n" +
+	"\x04part\x18\x01 \x01(\v2\x12.inventory.v1.PartR\x04part\"]\n" +
 	"\x10ListPartsRequest\x123\n" +
-	"\tpart_type\x18\x01 \x01(\x0e2\x16.inventory.v1.PartTypeR\bpartType\x12#\n" +
-	"\x05uuids\x18\x02 \x03(\tB\r\xbaH\n" +
-	"\x92\x01\a\"\x05r\x03\xb0\x01\x01R\x05uuids\"=\n" +
+	"\tpart_type\x18\x01 \x01(\x0e2\x16.inventory.v1.PartTypeR\bpartType\x12\x14\n" +
+	"\x05uuids\x18\x02 \x03(\tR\x05uuids\"=\n" +
 	"\x11ListPartsResponse\x12(\n" +
-	"\x05parts\x18\x01 \x03(\v2\x12.inventory.v1.PartR\x05parts\"\xb2\x01\n" +
-	"\x1cValidateCompatibilityRequest\x12%\n" +
-	"\thull_uuid\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\bhullUuid\x12)\n" +
-	"\vengine_uuid\x18\x02 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\n" +
-	"engineUuid\x12\x1f\n" +
-	"\vshield_uuid\x18\x03 \x01(\tR\n" +
-	"shieldUuid\x12\x1f\n" +
-	"\vweapon_uuid\x18\x04 \x01(\tR\n" +
-	"weaponUuid\"\x1f\n" +
-	"\x1dValidateCompatibilityResponse\":\n" +
-	"\x13ReservePartsRequest\x12#\n" +
-	"\x05uuids\x18\x01 \x03(\tB\r\xbaH\n" +
-	"\x92\x01\a\"\x05r\x03\xb0\x01\x01R\x05uuids\"\x16\n" +
-	"\x14ReservePartsResponse\":\n" +
-	"\x13ReleasePartsRequest\x12#\n" +
-	"\x05uuids\x18\x01 \x03(\tB\r\xbaH\n" +
-	"\x92\x01\a\"\x05r\x03\xb0\x01\x01R\x05uuids\"\x16\n" +
-	"\x14ReleasePartsResponse*{\n" +
+	"\x05parts\x18\x01 \x03(\v2\x12.inventory.v1.PartR\x05parts\"4\n" +
+	"\x1cValidateCompatibilityRequest\x12\x14\n" +
+	"\x05uuids\x18\x01 \x03(\tR\x05uuids\"\x1f\n" +
+	"\x1dValidateCompatibilityResponse\"+\n" +
+	"\x13ReservePartsRequest\x12\x14\n" +
+	"\x05uuids\x18\x01 \x03(\tR\x05uuids\"\x16\n" +
+	"\x14ReservePartsResponse\"+\n" +
+	"\x13ReleasePartsRequest\x12\x14\n" +
+	"\x05uuids\x18\x01 \x03(\tR\x05uuids\"\x16\n" +
+	"\x14ReleasePartsResponse\"*\n" +
+	"\x12CommitPartsRequest\x12\x14\n" +
+	"\x05uuids\x18\x01 \x03(\tR\x05uuids\"\x15\n" +
+	"\x13CommitPartsResponse*{\n" +
 	"\bPartType\x12\x19\n" +
 	"\x15PART_TYPE_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0ePART_TYPE_HULL\x10\x01\x12\x14\n" +
 	"\x10PART_TYPE_ENGINE\x10\x02\x12\x14\n" +
 	"\x10PART_TYPE_SHIELD\x10\x03\x12\x14\n" +
-	"\x10PART_TYPE_WEAPON\x10\x042\xc8\x03\n" +
+	"\x10PART_TYPE_WEAPON\x10\x042\x9c\x04\n" +
 	"\x10InventoryService\x12F\n" +
 	"\aGetPart\x12\x1c.inventory.v1.GetPartRequest\x1a\x1d.inventory.v1.GetPartResponse\x12L\n" +
 	"\tListParts\x12\x1e.inventory.v1.ListPartsRequest\x1a\x1f.inventory.v1.ListPartsResponse\x12p\n" +
 	"\x15ValidateCompatibility\x12*.inventory.v1.ValidateCompatibilityRequest\x1a+.inventory.v1.ValidateCompatibilityResponse\x12U\n" +
 	"\fReserveParts\x12!.inventory.v1.ReservePartsRequest\x1a\".inventory.v1.ReservePartsResponse\x12U\n" +
-	"\fReleaseParts\x12!.inventory.v1.ReleasePartsRequest\x1a\".inventory.v1.ReleasePartsResponseBOZMgithub.com/Anton119/rocket-service-/shared/pkg/proto/inventory/v1;inventoryv1b\x06proto3"
+	"\fReleaseParts\x12!.inventory.v1.ReleasePartsRequest\x1a\".inventory.v1.ReleasePartsResponse\x12R\n" +
+	"\vCommitParts\x12 .inventory.v1.CommitPartsRequest\x1a!.inventory.v1.CommitPartsResponseBOZMgithub.com/Anton119/rocket-service-/shared/pkg/proto/inventory/v1;inventoryv1b\x06proto3"
 
 var (
 	file_inventory_v1_inventory_proto_rawDescOnce sync.Once
@@ -716,7 +770,7 @@ func file_inventory_v1_inventory_proto_rawDescGZIP() []byte {
 }
 
 var file_inventory_v1_inventory_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_inventory_v1_inventory_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_inventory_v1_inventory_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_inventory_v1_inventory_proto_goTypes = []any{
 	(PartType)(0),                         // 0: inventory.v1.PartType
 	(*Part)(nil),                          // 1: inventory.v1.Part
@@ -730,11 +784,13 @@ var file_inventory_v1_inventory_proto_goTypes = []any{
 	(*ReservePartsResponse)(nil),          // 9: inventory.v1.ReservePartsResponse
 	(*ReleasePartsRequest)(nil),           // 10: inventory.v1.ReleasePartsRequest
 	(*ReleasePartsResponse)(nil),          // 11: inventory.v1.ReleasePartsResponse
-	(*timestamppb.Timestamp)(nil),         // 12: google.protobuf.Timestamp
+	(*CommitPartsRequest)(nil),            // 12: inventory.v1.CommitPartsRequest
+	(*CommitPartsResponse)(nil),           // 13: inventory.v1.CommitPartsResponse
+	(*timestamppb.Timestamp)(nil),         // 14: google.protobuf.Timestamp
 }
 var file_inventory_v1_inventory_proto_depIdxs = []int32{
 	0,  // 0: inventory.v1.Part.part_type:type_name -> inventory.v1.PartType
-	12, // 1: inventory.v1.Part.created_at:type_name -> google.protobuf.Timestamp
+	14, // 1: inventory.v1.Part.created_at:type_name -> google.protobuf.Timestamp
 	1,  // 2: inventory.v1.GetPartResponse.part:type_name -> inventory.v1.Part
 	0,  // 3: inventory.v1.ListPartsRequest.part_type:type_name -> inventory.v1.PartType
 	1,  // 4: inventory.v1.ListPartsResponse.parts:type_name -> inventory.v1.Part
@@ -743,13 +799,15 @@ var file_inventory_v1_inventory_proto_depIdxs = []int32{
 	6,  // 7: inventory.v1.InventoryService.ValidateCompatibility:input_type -> inventory.v1.ValidateCompatibilityRequest
 	8,  // 8: inventory.v1.InventoryService.ReserveParts:input_type -> inventory.v1.ReservePartsRequest
 	10, // 9: inventory.v1.InventoryService.ReleaseParts:input_type -> inventory.v1.ReleasePartsRequest
-	3,  // 10: inventory.v1.InventoryService.GetPart:output_type -> inventory.v1.GetPartResponse
-	5,  // 11: inventory.v1.InventoryService.ListParts:output_type -> inventory.v1.ListPartsResponse
-	7,  // 12: inventory.v1.InventoryService.ValidateCompatibility:output_type -> inventory.v1.ValidateCompatibilityResponse
-	9,  // 13: inventory.v1.InventoryService.ReserveParts:output_type -> inventory.v1.ReservePartsResponse
-	11, // 14: inventory.v1.InventoryService.ReleaseParts:output_type -> inventory.v1.ReleasePartsResponse
-	10, // [10:15] is the sub-list for method output_type
-	5,  // [5:10] is the sub-list for method input_type
+	12, // 10: inventory.v1.InventoryService.CommitParts:input_type -> inventory.v1.CommitPartsRequest
+	3,  // 11: inventory.v1.InventoryService.GetPart:output_type -> inventory.v1.GetPartResponse
+	5,  // 12: inventory.v1.InventoryService.ListParts:output_type -> inventory.v1.ListPartsResponse
+	7,  // 13: inventory.v1.InventoryService.ValidateCompatibility:output_type -> inventory.v1.ValidateCompatibilityResponse
+	9,  // 14: inventory.v1.InventoryService.ReserveParts:output_type -> inventory.v1.ReservePartsResponse
+	11, // 15: inventory.v1.InventoryService.ReleaseParts:output_type -> inventory.v1.ReleasePartsResponse
+	13, // 16: inventory.v1.InventoryService.CommitParts:output_type -> inventory.v1.CommitPartsResponse
+	11, // [11:17] is the sub-list for method output_type
+	5,  // [5:11] is the sub-list for method input_type
 	5,  // [5:5] is the sub-list for extension type_name
 	5,  // [5:5] is the sub-list for extension extendee
 	0,  // [0:5] is the sub-list for field type_name
@@ -766,7 +824,7 @@ func file_inventory_v1_inventory_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_inventory_v1_inventory_proto_rawDesc), len(file_inventory_v1_inventory_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   11,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -1,24 +1,17 @@
+// Package app содержит вспомогательные функции сборки OrderService для интеграционных тестов.
 package app
 
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	trmpgx "github.com/avito-tech/go-transaction-manager/drivers/pgxv5/v2"
 	"github.com/avito-tech/go-transaction-manager/trm/v2/manager"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"google.golang.org/grpc"
 
 	invpkg "github.com/Anton119/rocket-service-/inventory/pkg/service"
-	orderapi "github.com/Anton119/rocket-service-/order/internal/api/order/v1"
-	inventorygrpc "github.com/Anton119/rocket-service-/order/internal/client/grpc/inventory/v1"
-	paymentgrpc "github.com/Anton119/rocket-service-/order/internal/client/grpc/payment/v1"
-	orderrepo "github.com/Anton119/rocket-service-/order/internal/repository/order"
-	ordersvc "github.com/Anton119/rocket-service-/order/internal/service/order"
 	paypkg "github.com/Anton119/rocket-service-/payment/pkg/service"
 	"github.com/Anton119/rocket-service-/shared/pkg/config"
-	"github.com/Anton119/rocket-service-/shared/pkg/grpc/interceptor"
 	inventoryv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/inventory/v1"
 	paymentv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/payment/v1"
 )
@@ -76,21 +69,6 @@ func (db *DB) Close() {
 	}
 }
 
-// Interceptors возвращает цепочку unary-интерцепторов для gRPC-серверов в API-тестах.
-func Interceptors() (grpc.ServerOption, error) {
-	pvUnary, err := interceptor.UnaryProtovalidateInterceptor()
-	if err != nil {
-		return nil, err
-	}
-
-	return grpc.ChainUnaryInterceptor(
-		interceptor.RecoveryInterceptor(),
-		pvUnary,
-		interceptor.LoggerInterceptor(),
-		invpkg.UnaryErrorInterceptor(),
-	), nil
-}
-
 // NewInventoryServer собирает gRPC InventoryService (order/tests не импортирует inventory/internal).
 func NewInventoryServer(db *DB) inventoryv1.InventoryServiceServer {
 	return invpkg.NewInventoryServer(db.Pool, db.TxManager)
@@ -99,19 +77,4 @@ func NewInventoryServer(db *DB) inventoryv1.InventoryServiceServer {
 // NewPaymentServer собирает gRPC PaymentService.
 func NewPaymentServer() paymentv1.PaymentServiceServer {
 	return paypkg.NewPaymentServer()
-}
-
-// NewOrderHTTPServer собирает HTTP-сервер заказов так же, как internal/app/di.go.
-func NewOrderHTTPServer(
-	db *DB,
-	inventoryClient inventoryv1.InventoryServiceClient,
-	paymentClient paymentv1.PaymentServiceClient,
-) (http.Handler, error) {
-	repo := orderrepo.New(db.Pool, db.TxManager)
-	inv := inventorygrpc.NewClient(inventoryClient)
-	pay := paymentgrpc.NewClient(paymentClient)
-	svc := ordersvc.NewService(repo, inv, pay)
-	api := orderapi.NewAPI(svc)
-
-	return orderapi.NewServer(api)
 }

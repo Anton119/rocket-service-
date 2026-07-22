@@ -8,47 +8,46 @@ import (
 	"github.com/ilyakaznacheev/cleanenv"
 )
 
-const defaultConfigPath = "inventory/config.local.yaml"
+var appConfig *Config
 
-// Config — конфигурация InventoryService.
+// Config — корневая конфигурация InventoryService.
 type Config struct {
-	GRPC   grpcConfig   `yaml:"grpc"`
 	Logger loggerConfig `yaml:"logger"`
+	GRPC   grpcConfig   `yaml:"grpc"`
 	PG     pgConfig     `yaml:"pg"`
 }
 
-// ResolveConfigPath определяет путь к конфиг-файлу: флаг -config > env CONFIG_PATH > default.
+const defaultConfigPath = "config.local.yaml"
+
+// ResolveConfigPath определяет путь к YAML: -config > CONFIG_PATH > config.local.yaml.
 func ResolveConfigPath() string {
 	var cfgFlag string
-	flag.StringVar(&cfgFlag, "config", "", "путь к YAML-конфигу (например, inventory/config.production.yaml)")
+	flag.StringVar(&cfgFlag, "config", "", "путь к YAML-конфигу")
 	flag.Parse()
 
 	if cfgFlag != "" {
 		return cfgFlag
 	}
-
 	if envPath := os.Getenv("CONFIG_PATH"); envPath != "" {
 		return envPath
 	}
-
 	return defaultConfigPath
 }
 
-// Load загружает конфигурацию: YAML-файл + env-переменные поверх.
-func Load(path string) (*Config, error) {
+// MustLoad загружает конфиг (YAML + env) и сохраняет в AppConfig.
+func MustLoad(path string) {
 	var cfg Config
-
 	if path != "" {
 		if err := cleanenv.ReadConfig(path, &cfg); err != nil {
-			return nil, fmt.Errorf("загрузить конфиг из %q: %w", path, err)
+			panic(fmt.Sprintf("не удалось загрузить конфиг из %q: %v", path, err))
 		}
-
-		return &cfg, nil
+	} else if err := cleanenv.ReadEnv(&cfg); err != nil {
+		panic(fmt.Sprintf("не удалось загрузить конфиг из env: %v", err))
 	}
+	appConfig = &cfg
+}
 
-	if err := cleanenv.ReadEnv(&cfg); err != nil {
-		return nil, fmt.Errorf("загрузить конфиг из env: %w", err)
-	}
-
-	return &cfg, nil
+// AppConfig возвращает загруженный конфиг.
+func AppConfig() *Config {
+	return appConfig
 }

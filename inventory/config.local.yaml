@@ -1,14 +1,9 @@
+logger:
+  level: "info"
+
 grpc:
   host: "localhost"
   port: "50051"
 
 pg:
-  host: "localhost"
-  port: "5433"
-  database: "inventory-service"
-  user: "inventory-service-user"
-  password: "inventory-service-password"
-  sslmode: "disable"
-
-logger:
-  level: "info"
+  uri: "postgres://inventory-service-user:inventory-service-password@localhost:5433/inventory-service?sslmode=disable"

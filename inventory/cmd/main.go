@@ -12,18 +12,17 @@ import (
 )
 
 func main() {
-	_ = godotenv.Load("inventory.env") //nolint:gosec // .env опционален — ошибка загрузки допустима.
+	_ = godotenv.Load("inventory.env")    //nolint:gosec // .env файл опционален — ошибка загрузки допустима.
+	_ = godotenv.Load("../inventory.env") //nolint:gosec // .env файл опционален — ошибка загрузки допустима.
 
-	configPath := config.ResolveConfigPath()
+	config.MustLoad(config.ResolveConfigPath())
 
-	cfg, err := config.Load(configPath)
-	if err != nil {
-		slog.Error("не удалось загрузить конфигурацию", "error", err, "config_path", configPath)
-		os.Exit(1)
-	}
+	application := app.New(context.Background())
 
-	if err = app.New(context.Background(), cfg).Run(); err != nil {
-		slog.Error("ошибка запуска приложения", "error", err)
+	slog.Info("запуск InventoryService", "адрес", config.AppConfig().GRPC.Address())
+
+	if err := application.Run(); err != nil {
+		slog.Error("InventoryService завершился с ошибкой", "error", err)
 		os.Exit(1)
 	}
 }

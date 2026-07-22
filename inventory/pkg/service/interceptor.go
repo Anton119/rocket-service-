@@ -6,8 +6,8 @@ import (
 	invinterceptor "github.com/Anton119/rocket-service-/inventory/internal/interceptor"
 )
 
-// UnaryErrorInterceptor переводит доменные ошибки inventory в gRPC status codes.
-// Экспортируется через pkg для API-тестов и других модулей без доступа к internal.
+// UnaryErrorInterceptor маппит доменные ошибки InventoryService в gRPC-коды.
+// Нужен снаружи модуля (API-тесты order), поэтому экспортируется через pkg.
 func UnaryErrorInterceptor() grpc.UnaryServerInterceptor {
-	return invinterceptor.UnaryErrorInterceptor()
+	return invinterceptor.ErrorInterceptor()
 }

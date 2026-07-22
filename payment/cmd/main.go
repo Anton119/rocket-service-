@@ -5,21 +5,24 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/joho/godotenv"
+
 	"github.com/Anton119/rocket-service-/payment/internal/app"
 	"github.com/Anton119/rocket-service-/payment/internal/config"
 )
 
 func main() {
-	configPath := config.ResolveConfigPath()
+	_ = godotenv.Load("payment.env")    //nolint:gosec // .env файл опционален — ошибка загрузки допустима.
+	_ = godotenv.Load("../payment.env") //nolint:gosec // .env файл опционален — ошибка загрузки допустима.
 
-	cfg, err := config.Load(configPath)
-	if err != nil {
-		slog.Error("не удалось загрузить конфигурацию", "error", err, "config_path", configPath)
-		os.Exit(1)
-	}
+	config.MustLoad(config.ResolveConfigPath())
 
-	if err = app.New(context.Background(), cfg).Run(); err != nil {
-		slog.Error("ошибка запуска приложения", "error", err)
+	application := app.New(context.Background())
+
+	slog.Info("запуск PaymentService", "адрес", config.AppConfig().GRPC.Address())
+
+	if err := application.Run(); err != nil {
+		slog.Error("PaymentService завершился с ошибкой", "error", err)
 		os.Exit(1)
 	}
 }

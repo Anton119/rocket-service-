@@ -31,9 +31,8 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (model.Part, error) 
 		if errors.Is(err, pgx.ErrNoRows) {
 			return model.Part{}, errs.ErrPartNotFound
 		}
-
 		return model.Part{}, fmt.Errorf("получить деталь: %w", err)
 	}
 
-	return repoconv.PartRecordToModel(rec)
+	return repoconv.PartRecordToModel(rec), nil
 }

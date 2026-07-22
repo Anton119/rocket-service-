@@ -2,9 +2,9 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net"
-	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -31,60 +31,49 @@ const (
 	shutdownTimeout           = 10 * time.Second
 )
 
-// App управляет жизненным циклом PaymentService.
+// App — жизненный цикл PaymentService.
 type App struct {
-	cfg         *config.Config
 	diContainer *diContainer
 	grpcServer  *grpc.Server
 	listener    net.Listener
 }
 
 // New создаёт и инициализирует приложение.
-func New(ctx context.Context, cfg *config.Config) *App {
-	a := &App{cfg: cfg}
+func New(ctx context.Context) *App {
+	a := &App{}
 	a.initDeps(ctx)
-
 	return a
 }
 
-// Run запускает gRPC-сервер и выполняет graceful shutdown по сигналу ОС.
+// Run запускает gRPC-сервер и обрабатывает graceful shutdown.
 func (a *App) Run() error {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
+	a.startGracefulShutdown(ctx, cancel)
+
 	errCh := make(chan error, 1)
-	go func() { errCh <- a.runGRPCServer() }()
-
-	var runErr error
-	select {
-	case runErr = <-errCh:
-	case <-ctx.Done():
-		slog.Info("получен сигнал завершения, начинаем graceful shutdown")
-	}
-	cancel()
-
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout) //nolint:g118 // отдельный контекст для shutdown после отмены signal ctx.
-	defer shutdownCancel()
-
-	if err := closer.CloseAll(shutdownCtx); err != nil {
-		slog.Error("ошибка при завершении работы", "error", err)
-		if runErr == nil {
-			runErr = err
+	go func() {
+		if err := a.runGRPCServer(); err != nil {
+			errCh <- fmt.Errorf("gRPC-сервер упал: %w", err)
 		}
-	}
+	}()
 
-	return runErr
+	select {
+	case <-ctx.Done():
+		return nil
+	case err := <-errCh:
+		return err
+	}
 }
 
 func (a *App) initDeps(ctx context.Context) {
-	inits := []func(context.Context){
+	for _, f := range []func(context.Context){
 		a.initDI,
 		a.initLogger,
 		a.initListener,
 		a.initGRPCServer,
-	}
-
-	for _, f := range inits {
+	} {
 		f(ctx)
 	}
 }
@@ -94,24 +83,23 @@ func (a *App) initDI(_ context.Context) {
 }
 
 func (a *App) initLogger(_ context.Context) {
-	logger.Init(a.cfg.Logger.Level)
+	logger.Init(config.AppConfig().Logger.Level)
 }
 
 func (a *App) initListener(_ context.Context) {
-	listener, err := net.Listen("tcp", a.cfg.GRPC.Address()) //nolint:noctx // net.Listen не требует контекст.
+	lis, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", config.AppConfig().GRPC.Address())
 	if err != nil {
 		slog.Error("не удалось создать TCP-листенер", "error", err)
-		os.Exit(1)
+		panic(err)
 	}
-
-	a.listener = listener
+	a.listener = lis
 }
 
-func (a *App) initGRPCServer(ctx context.Context) {
+func (a *App) initGRPCServer(_ context.Context) {
 	pvUnary, err := interceptor.UnaryProtovalidateInterceptor()
 	if err != nil {
 		slog.Error("ошибка инициализации protovalidate", "error", err)
-		os.Exit(1)
+		panic(err)
 	}
 
 	a.grpcServer = grpc.NewServer(
@@ -140,11 +128,23 @@ func (a *App) initGRPCServer(ctx context.Context) {
 
 	reflection.Register(a.grpcServer)
 	health.RegisterService(a.grpcServer)
-	paymentv1.RegisterPaymentServiceServer(a.grpcServer, a.diContainer.PaymentV1API(ctx))
+	paymentv1.RegisterPaymentServiceServer(a.grpcServer, a.diContainer.PaymentAPI())
+}
+
+func (a *App) startGracefulShutdown(ctx context.Context, cancel context.CancelFunc) {
+	go func() { //nolint:gosec // G118: ctx уже отменён, context.Background нужен для graceful shutdown.
+		<-ctx.Done()
+		cancel()
+		slog.Info("получен сигнал завершения, начинаем graceful shutdown")
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer shutdownCancel()
+		if err := closer.CloseAll(shutdownCtx); err != nil {
+			slog.Error("ошибка при завершении работы", "error", err)
+		}
+	}()
 }
 
 func (a *App) runGRPCServer() error {
-	slog.Info("gRPC-сервер запущен", "address", a.cfg.GRPC.Address())
-
+	slog.Info("gRPC-сервер запущен", "address", config.AppConfig().GRPC.Address())
 	return a.grpcServer.Serve(a.listener)
 }
