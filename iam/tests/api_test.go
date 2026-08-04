@@ -37,8 +37,8 @@ var (
 )
 
 func initTestEnv() {
-	if os.Getenv("DB_URI") == "" {
-		os.Setenv("DB_URI", iampkg.IAMDBURI())
+	if os.Getenv("IAM_DB_URI") == "" && os.Getenv("DB_URI") == "" {
+		os.Setenv("IAM_DB_URI", iampkg.IAMDBURI())
 	}
 	if os.Getenv("REDIS_HOST") == "" {
 		os.Setenv("REDIS_HOST", "localhost")

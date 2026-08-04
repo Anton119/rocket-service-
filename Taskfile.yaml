@@ -341,62 +341,89 @@ tasks:
   migrate:order:up:
     desc: "Применяет все миграции Order-сервиса"
     deps: [goose:install]
-    dotenv: ['order.env']
     cmds:
-      - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "$DB_URI" up'
+      - |
+        set -a
+        . ./order.env
+        set +a
+        {{.GOOSE}} -dir "$MIGRATIONS_DIR" postgres "$DB_URI" up
 
   migrate:order:down:
     desc: "Откатывает последнюю миграцию Order-сервиса"
     deps: [goose:install]
-    dotenv: ['order.env']
     cmds:
-      - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "$DB_URI" down'
+      - |
+        set -a
+        . ./order.env
+        set +a
+        {{.GOOSE}} -dir "$MIGRATIONS_DIR" postgres "$DB_URI" down
 
   migrate:order:status:
     desc: "Показывает статус миграций Order-сервиса"
     deps: [goose:install]
-    dotenv: ['order.env']
     cmds:
-      - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "$DB_URI" status'
+      - |
+        set -a
+        . ./order.env
+        set +a
+        {{.GOOSE}} -dir "$MIGRATIONS_DIR" postgres "$DB_URI" status
 
   migrate:inventory:up:
     desc: "Применяет все миграции Inventory-сервиса"
     deps: [goose:install]
-    dotenv: ['inventory.env']
     cmds:
-      - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "$DB_URI" up'
+      - |
+        set -a
+        . ./inventory.env
+        set +a
+        {{.GOOSE}} -dir "$MIGRATIONS_DIR" postgres "$DB_URI" up
 
   migrate:inventory:down:
     desc: "Откатывает последнюю миграцию Inventory-сервиса"
     deps: [goose:install]
-    dotenv: ['inventory.env']
     cmds:
-      - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "$DB_URI" down'
+      - |
+        set -a
+        . ./inventory.env
+        set +a
+        {{.GOOSE}} -dir "$MIGRATIONS_DIR" postgres "$DB_URI" down
 
   migrate:inventory:status:
     desc: "Показывает статус миграций Inventory-сервиса"
     deps: [goose:install]
-    dotenv: ['inventory.env']
     cmds:
-      - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "$DB_URI" status'
+      - |
+        set -a
+        . ./inventory.env
+        set +a
+        {{.GOOSE}} -dir "$MIGRATIONS_DIR" postgres "$DB_URI" status
 
   migrate:iam:up:
     desc: "Применяет все миграции IAM сервиса"
     deps: [goose:install]
-    dotenv: ['iam.env']
     cmds:
-      - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "$DB_URI" up'
+      - |
+        set -a
+        . ./iam.env
+        set +a
+        {{.GOOSE}} -dir "$MIGRATIONS_DIR" postgres "$DB_URI" up
 
   migrate:iam:down:
     desc: "Откатывает последнюю миграцию IAM сервиса"
     deps: [goose:install]
-    dotenv: ['iam.env']
     cmds:
-      - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "$DB_URI" down'
+      - |
+        set -a
+        . ./iam.env
+        set +a
+        {{.GOOSE}} -dir "$MIGRATIONS_DIR" postgres "$DB_URI" down
 
   migrate:iam:status:
     desc: "Показывает статус миграций IAM сервиса"
     deps: [goose:install]
-    dotenv: ['iam.env']
     cmds:
-      - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "$DB_URI" status'
+      - |
+        set -a
+        . ./iam.env
+        set +a
+        {{.GOOSE}} -dir "$MIGRATIONS_DIR" postgres "$DB_URI" status

@@ -32,8 +32,12 @@ type Infra struct {
 	Redis *redis.Client
 }
 
-// IAMDBURI возвращает DSN PostgreSQL IAM (DB_URI или дефолт для локальных тестов).
+// IAMDBURI возвращает DSN PostgreSQL IAM (IAM_DB_URI, DB_URI или дефолт для локальных тестов).
 func IAMDBURI() string {
+	if dsn := os.Getenv("IAM_DB_URI"); dsn != "" {
+		return dsn
+	}
+
 	if dsn := os.Getenv("DB_URI"); dsn != "" {
 		return dsn
 	}
