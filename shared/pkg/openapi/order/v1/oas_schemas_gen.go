@@ -50,9 +50,6 @@ func (*CreateOrderNotFound) createOrderRes() {}
 
 // Ref: #
 type CreateOrderRequest struct {
-	// UUID пользователя-владельца заказа (обязательный, v4). На
-	// неделе 6 будет браться из сессии.
-	UserUUID uuid.UUID `json:"user_uuid"`
 	// UUID корпуса (обязательный, v4).
 	HullUUID uuid.UUID `json:"hull_uuid"`
 	// UUID двигателя (обязательный, v4).
@@ -61,11 +58,6 @@ type CreateOrderRequest struct {
 	ShieldUUID OptNilUUID `json:"shield_uuid"`
 	// UUID вооружения (опциональный, v4).
 	WeaponUUID OptNilUUID `json:"weapon_uuid"`
-}
-
-// GetUserUUID returns the value of UserUUID.
-func (s *CreateOrderRequest) GetUserUUID() uuid.UUID {
-	return s.UserUUID
 }
 
 // GetHullUUID returns the value of HullUUID.
@@ -86,11 +78,6 @@ func (s *CreateOrderRequest) GetShieldUUID() OptNilUUID {
 // GetWeaponUUID returns the value of WeaponUUID.
 func (s *CreateOrderRequest) GetWeaponUUID() OptNilUUID {
 	return s.WeaponUUID
-}
-
-// SetUserUUID sets the value of UserUUID.
-func (s *CreateOrderRequest) SetUserUUID(val uuid.UUID) {
-	s.UserUUID = val
 }
 
 // SetHullUUID sets the value of HullUUID.

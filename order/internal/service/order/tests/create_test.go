@@ -15,6 +15,7 @@ import (
 	"github.com/Anton119/rocket-service-/order/internal/service/input"
 	ordersvc "github.com/Anton119/rocket-service-/order/internal/service/order"
 	"github.com/Anton119/rocket-service-/order/internal/service/order/mocks"
+	"github.com/Anton119/rocket-service-/platform/pkg/auth"
 )
 
 func TestCreateOrder(t *testing.T) {
@@ -27,11 +28,11 @@ func TestCreateOrder(t *testing.T) {
 	}
 
 	var (
-		ctx = context.Background()
-
 		hullUUID   = uuid.MustParse("550e8400-e29b-41d4-a716-446655440001")
 		engineUUID = uuid.MustParse("550e8400-e29b-41d4-a716-446655440003")
 		userUUID   = uuid.MustParse("550e8400-e29b-41d4-a716-446655440010")
+
+		ctx = auth.WithUserUUID(context.Background(), userUUID.String())
 
 		partsInStock = []model.Part{
 			{UUID: hullUUID.String(), Price: 500_000, StockQuantity: 10},
@@ -48,13 +49,13 @@ func TestCreateOrder(t *testing.T) {
 		name      string
 		args      args
 		setupMock func(repo *mocks.OrderRepository, inv *mocks.InventoryClient)
+		noAuth    bool
 		expected  expected
 	}{
 		{
 			name: "успешное создание заказа",
 			args: args{
 				in: input.CreateOrderInput{
-					UserUUID:   userUUID,
 					HullUUID:   hullUUID,
 					EngineUUID: engineUUID,
 				},
@@ -86,7 +87,6 @@ func TestCreateOrder(t *testing.T) {
 			name: "деталь не найдена в inventory",
 			args: args{
 				in: input.CreateOrderInput{
-					UserUUID:   userUUID,
 					HullUUID:   hullUUID,
 					EngineUUID: engineUUID,
 				},
@@ -102,7 +102,6 @@ func TestCreateOrder(t *testing.T) {
 			name: "деталь отсутствует на складе",
 			args: args{
 				in: input.CreateOrderInput{
-					UserUUID:   userUUID,
 					HullUUID:   hullUUID,
 					EngineUUID: engineUUID,
 				},
@@ -114,6 +113,18 @@ func TestCreateOrder(t *testing.T) {
 			},
 			expected: expected{err: errs.ErrPartOutOfStock},
 		},
+		{
+			name: "не аутентифицирован",
+			args: args{
+				in: input.CreateOrderInput{
+					HullUUID:   hullUUID,
+					EngineUUID: engineUUID,
+				},
+			},
+			setupMock: func(_ *mocks.OrderRepository, _ *mocks.InventoryClient) {},
+			noAuth:    true,
+			expected:  expected{err: errs.ErrUnauthorized},
+		},
 	}
 
 	for _, tc := range tests {
@@ -124,8 +135,13 @@ func TestCreateOrder(t *testing.T) {
 
 			tc.setupMock(repo, inv)
 
+			testCtx := ctx
+			if tc.noAuth {
+				testCtx = context.Background()
+			}
+
 			svc := ordersvc.NewService(repo, inv, pay, orderproducer.NoopProducer{}, passthroughTx{})
-			out, err := svc.CreateOrder(ctx, tc.args.in)
+			out, err := svc.CreateOrder(testCtx, tc.args.in)
 
 			if tc.expected.err != nil {
 				require.Error(t, err)

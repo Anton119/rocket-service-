@@ -4,6 +4,7 @@ import "errors"
 
 var (
 	ErrOrderNotFound = errors.New("заказ не найден")
+	ErrUnauthorized  = errors.New("не аутентифицирован")
 
 	ErrPartNotFound       = errors.New("деталь не найдена")
 	ErrPartOutOfStock     = errors.New("деталь отсутствует на складе")

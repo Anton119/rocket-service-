@@ -10,6 +10,7 @@ import (
 
 	"github.com/Anton119/rocket-service-/assembly/internal/model"
 	"github.com/Anton119/rocket-service-/platform/pkg/kafka"
+	kafkamw "github.com/Anton119/rocket-service-/platform/pkg/middleware/kafka"
 	eventsv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/events/v1"
 )
 
@@ -39,8 +40,9 @@ func (p *Producer) Produce(ctx context.Context, event model.ShipAssembledEvent) 
 	}
 
 	if err := p.kafkaProducer.Send(ctx, &kafka.Message{
-		Key:   []byte(event.OrderUUID),
-		Value: payload,
+		Key:     []byte(event.OrderUUID),
+		Value:   payload,
+		Headers: kafkamw.ProducerSessionHeaders(ctx),
 	}); err != nil {
 		slog.ErrorContext(ctx, "не удалось отправить ShipAssembled", "error", err, "order_uuid", event.OrderUUID)
 		return err

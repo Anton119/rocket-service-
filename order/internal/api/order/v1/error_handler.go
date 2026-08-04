@@ -20,6 +20,11 @@ func mapCreateOrderError(err error) (orderv1.CreateOrderRes, error) {
 			Code:    http.StatusConflict,
 			Message: "деталь отсутствует на складе",
 		}, nil
+	case errors.Is(err, errs.ErrUnauthorized):
+		return &orderv1.CreateOrderBadRequest{
+			Code:    http.StatusUnauthorized,
+			Message: errs.ErrUnauthorized.Error(),
+		}, nil
 	default:
 		var ia *errs.InvalidArgumentError
 		if errors.As(err, &ia) {

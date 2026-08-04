@@ -24,3 +24,6 @@ inventory_client:
 
 payment_client:
   address: "localhost:50052"
+
+iam_client:
+  address: "localhost:50053"

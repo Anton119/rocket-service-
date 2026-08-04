@@ -11,10 +11,21 @@ import (
 	errs "github.com/Anton119/rocket-service-/order/internal/errors"
 	"github.com/Anton119/rocket-service-/order/internal/model"
 	"github.com/Anton119/rocket-service-/order/internal/service/input"
+	"github.com/Anton119/rocket-service-/platform/pkg/auth"
 )
 
 // CreateOrder проверяет наличие деталей и создаёт заказ.
 func (s *Service) CreateOrder(ctx context.Context, in input.CreateOrderInput) (*input.CreateOrderResult, error) {
+	userUUIDStr, ok := auth.UserUUIDFromContext(ctx)
+	if !ok || userUUIDStr == "" {
+		return nil, errs.ErrUnauthorized
+	}
+
+	userUUID, err := uuid.Parse(userUUIDStr)
+	if err != nil {
+		return nil, errs.ErrUnauthorized
+	}
+
 	hull := in.HullUUID
 	engine := in.EngineUUID
 
@@ -77,7 +88,7 @@ func (s *Service) CreateOrder(ctx context.Context, in input.CreateOrderInput) (*
 
 	o := model.Order{
 		OrderUUID:  orderUUID,
-		UserUUID:   in.UserUUID,
+		UserUUID:   userUUID,
 		Items:      items,
 		HullUUID:   hull,
 		EngineUUID: engine,

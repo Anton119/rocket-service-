@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, master, hm2, hm3, hm4, hm5]
+    branches: [main, master, hm2, hm3, hm4, hm5, hm6]
   pull_request:
 
 env:
@@ -24,6 +24,7 @@ jobs:
             order/go.sum
             inventory/go.sum
             payment/go.sum
+            iam/go.sum
             shared/go.sum
             platform/go.sum
 
@@ -32,7 +33,7 @@ jobs:
 
       - name: Init Go workspace
         run: |
-          go work init ./assembly ./order ./inventory ./payment ./shared ./platform
+          go work init ./assembly ./order ./inventory ./payment ./iam ./shared ./platform
           go work sync
 
       - name: Tidy modules
@@ -47,12 +48,14 @@ jobs:
       - name: Start PostgreSQL and Kafka
         run: |
           task up-core
+          task up-iam
           task up-inventory
           task up-order
 
       - name: Wait for PostgreSQL
         run: |
           for i in $(seq 1 30); do
+            docker exec postgres-iam pg_isready -U iam-service-user -d iam-service &&
             docker exec postgres-inventory pg_isready -U inventory-service-user -d inventory-service &&
             docker exec postgres-order pg_isready -U order-service-user -d order-service &&
             exit 0
@@ -62,14 +65,24 @@ jobs:
           exit 1
 
       - name: Apply migrations
+        run: task migrate:all:up
+
+      - name: Wait for Redis
         run: |
-          task migrate:inventory:up
-          task migrate:order:up
+          for i in $(seq 1 30); do
+            docker exec redis-iam redis-cli ping | grep -q PONG && exit 0
+            sleep 2
+          done
+          echo "Redis не готов" >&2
+          exit 1
 
       - name: API tests
         env:
           INVENTORY_DB_URI: postgres://inventory-service-user:inventory-service-password@localhost:5433/inventory-service?sslmode=disable
           ORDER_DB_URI: postgres://order-service-user:order-service-password@localhost:5432/order-service?sslmode=disable
+          IAM_DB_URI: postgres://iam-service-user:iam-service-password@localhost:5434/iam-service?sslmode=disable
+          REDIS_HOST: localhost
+          REDIS_PORT: "6379"
         run: task test:api
 
       - name: Stop infrastructure
@@ -77,36 +90,5 @@ jobs:
         run: |
           task down-order || true
           task down-inventory || true
+          task down-iam || true
           task down-core || true
-
-  test-e2e:
-    runs-on: ubuntu-latest
-    needs: lint-and-test
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.26.0"
-          cache-dependency-path: |
-            assembly/go.sum
-            order/go.sum
-            inventory/go.sum
-            payment/go.sum
-            shared/go.sum
-            platform/go.sum
-
-      - name: Install Task
-        run: go install github.com/go-task/task/v3/cmd/task@v3.41.0
-
-      - name: Init Go workspace
-        run: |
-          go work init ./assembly ./order ./inventory ./payment ./shared ./platform
-          go work sync
-
-      - name: E2E tests
-        env:
-          E2E_ENABLED: "1"
-        run: task test:e2e

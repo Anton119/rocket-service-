@@ -12,9 +12,10 @@ var appConfig *Config
 
 // Config — корневая конфигурация InventoryService.
 type Config struct {
-	Logger loggerConfig `yaml:"logger"`
-	GRPC   grpcConfig   `yaml:"grpc"`
-	PG     pgConfig     `yaml:"pg"`
+	Logger    loggerConfig    `yaml:"logger"`
+	GRPC      grpcConfig      `yaml:"grpc"`
+	PG        pgConfig        `yaml:"pg"`
+	IAMClient iamClientConfig `yaml:"iam_client"`
 }
 
 const defaultConfigPath = "config.local.yaml"

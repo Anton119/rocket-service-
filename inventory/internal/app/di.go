@@ -8,19 +8,25 @@ import (
 	trmpgx "github.com/avito-tech/go-transaction-manager/drivers/pgxv5/v2"
 	"github.com/avito-tech/go-transaction-manager/trm/v2/manager"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	invapi "github.com/Anton119/rocket-service-/inventory/internal/api/inventory/v1"
+	authgrpc "github.com/Anton119/rocket-service-/inventory/internal/client/grpc/auth/v1"
 	"github.com/Anton119/rocket-service-/inventory/internal/config"
 	partrepo "github.com/Anton119/rocket-service-/inventory/internal/repository/part"
 	partsvc "github.com/Anton119/rocket-service-/inventory/internal/service/application/part"
 	"github.com/Anton119/rocket-service-/inventory/internal/service/domain"
 	"github.com/Anton119/rocket-service-/platform/pkg/closer"
+	authv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/auth/v1"
 	inventoryv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/inventory/v1"
 )
 
 type diContainer struct {
 	pgPool       *pgxpool.Pool
 	txManager    *manager.Manager
+	iamConn      *grpc.ClientConn
+	authClient   *authgrpc.Client
 	partRepo     partsvc.PartRepository
 	partService  invapi.PartService
 	inventoryAPI inventoryv1.InventoryServiceServer
@@ -67,6 +73,31 @@ func (d *diContainer) TxManager() *manager.Manager {
 		d.txManager = txManager
 	}
 	return d.txManager
+}
+
+func (d *diContainer) IAMConn() *grpc.ClientConn {
+	if d.iamConn == nil {
+		conn, err := grpc.NewClient(
+			config.AppConfig().IAMClient.GRPCAddress(),
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		)
+		if err != nil {
+			slog.Error("не удалось подключиться к IAMService", "error", err)
+			os.Exit(1)
+		}
+		closer.Add("IAM gRPC", func(_ context.Context) error {
+			return conn.Close()
+		})
+		d.iamConn = conn
+	}
+	return d.iamConn
+}
+
+func (d *diContainer) AuthClient() *authgrpc.Client {
+	if d.authClient == nil {
+		d.authClient = authgrpc.NewClient(authv1.NewAuthServiceClient(d.IAMConn()))
+	}
+	return d.authClient
 }
 
 func (d *diContainer) PartRepository(ctx context.Context) partsvc.PartRepository {
