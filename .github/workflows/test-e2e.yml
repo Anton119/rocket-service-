@@ -29,6 +29,7 @@ jobs:
             order/go.sum
             inventory/go.sum
             payment/go.sum
+            iam/go.sum
             shared/go.sum
             platform/go.sum
 
@@ -37,7 +38,7 @@ jobs:
 
       - name: Init Go workspace
         run: |
-          go work init ./assembly ./order ./inventory ./payment ./shared ./platform || true
+          go work init ./assembly ./order ./inventory ./payment ./iam ./shared ./platform || true
           go work sync
 
       - name: Run e2e
