@@ -14,10 +14,13 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	orderapi "github.com/Anton119/rocket-service-/order/internal/api/order/v1"
+	authgrpc "github.com/Anton119/rocket-service-/order/internal/client/grpc/auth/v1"
 	inventorygrpc "github.com/Anton119/rocket-service-/order/internal/client/grpc/inventory/v1"
 	paymentgrpc "github.com/Anton119/rocket-service-/order/internal/client/grpc/payment/v1"
 	"github.com/Anton119/rocket-service-/order/internal/config"
 	assemblyconsumer "github.com/Anton119/rocket-service-/order/internal/consumer/assembly_consumer"
+	orderinterceptor "github.com/Anton119/rocket-service-/order/internal/interceptor"
+	ordermiddleware "github.com/Anton119/rocket-service-/order/internal/middleware"
 	orderproducer "github.com/Anton119/rocket-service-/order/internal/producer/order_producer"
 	orderrepo "github.com/Anton119/rocket-service-/order/internal/repository/order"
 	ordersvc "github.com/Anton119/rocket-service-/order/internal/service/order"
@@ -25,6 +28,7 @@ import (
 	wrappedKafkaConsumer "github.com/Anton119/rocket-service-/platform/pkg/kafka/consumer"
 	wrappedKafkaProducer "github.com/Anton119/rocket-service-/platform/pkg/kafka/producer"
 	kafkaMiddleware "github.com/Anton119/rocket-service-/platform/pkg/middleware/kafka"
+	authv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/auth/v1"
 	inventoryv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/inventory/v1"
 	paymentv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/payment/v1"
 )
@@ -42,6 +46,9 @@ type diContainer struct {
 
 	inventoryConn *grpc.ClientConn
 	paymentConn   *grpc.ClientConn
+	iamConn       *grpc.ClientConn
+
+	authClient *authgrpc.Client
 
 	orderPaidKafkaProducer     *wrappedKafkaProducer.Producer
 	shipAssembledKafkaConsumer *wrappedKafkaConsumer.Consumer
@@ -100,6 +107,7 @@ func (d *diContainer) InventoryConn() *grpc.ClientConn {
 		conn, err := grpc.NewClient(
 			config.AppConfig().InventoryClient.GRPCAddress(),
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithUnaryInterceptor(orderinterceptor.SessionForwarder()),
 		)
 		if err != nil {
 			slog.Error("не удалось подключиться к InventoryService", "error", err)
@@ -129,6 +137,31 @@ func (d *diContainer) PaymentConn() *grpc.ClientConn {
 		d.paymentConn = conn
 	}
 	return d.paymentConn
+}
+
+func (d *diContainer) IAMConn() *grpc.ClientConn {
+	if d.iamConn == nil {
+		conn, err := grpc.NewClient(
+			config.AppConfig().IAMClient.GRPCAddress(),
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		)
+		if err != nil {
+			slog.Error("не удалось подключиться к IAMService", "error", err)
+			os.Exit(1)
+		}
+		closer.Add("IAM gRPC", func(_ context.Context) error {
+			return conn.Close()
+		})
+		d.iamConn = conn
+	}
+	return d.iamConn
+}
+
+func (d *diContainer) AuthClient() *authgrpc.Client {
+	if d.authClient == nil {
+		d.authClient = authgrpc.NewClient(authv1.NewAuthServiceClient(d.IAMConn()))
+	}
+	return d.authClient
 }
 
 func (d *diContainer) SyncProducer() sarama.SyncProducer {
@@ -183,7 +216,10 @@ func (d *diContainer) ShipAssembledKafkaConsumer() *wrappedKafkaConsumer.Consume
 		d.shipAssembledKafkaConsumer = wrappedKafkaConsumer.NewConsumer(
 			d.ConsumerGroup(),
 			[]string{config.AppConfig().ShipAssembledConsumer.TopicName()},
-			wrappedKafkaConsumer.WithMiddlewares(kafkaMiddleware.ConsumerLogging()),
+			wrappedKafkaConsumer.WithMiddlewares(
+				kafkaMiddleware.ConsumerSession(),
+				kafkaMiddleware.ConsumerLogging(),
+			),
 		)
 	}
 	return d.shipAssembledKafkaConsumer
@@ -225,9 +261,10 @@ func (d *diContainer) HTTPServer(ctx context.Context) *http.Server {
 	}
 
 	httpCfg := config.AppConfig().HTTP
+	handler := ordermiddleware.AuthMiddleware(d.AuthClient(), orderServer)
 	srv := &http.Server{
 		Addr:              httpCfg.Address(),
-		Handler:           orderServer,
+		Handler:           handler,
 		ReadHeaderTimeout: httpCfg.ReadHeaderTimeout(),
 		ReadTimeout:       httpCfg.ReadTimeout(),
 		WriteTimeout:      httpCfg.WriteTimeout(),

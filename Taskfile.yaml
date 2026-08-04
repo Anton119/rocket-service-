@@ -34,7 +34,7 @@ vars:
   COVERAGE_FILE: '{{.COVERAGE_DIR}}/coverage.out'
   COVERAGE_THRESHOLD: '40'
 
-  MODULES: assembly inventory order payment shared platform
+  MODULES: assembly inventory order payment shared platform iam
 
 tasks:
   formatters:install:
@@ -101,7 +101,7 @@ tasks:
     desc: "Запускает golangci-lint"
     deps: [golangci-lint:install]
     cmds:
-      - '{{.GOLANGCI_LINT}} run --allow-parallel-runners assembly/... order/... inventory/... payment/... shared/... platform/... --config=.golangci.yml'
+      - '{{.GOLANGCI_LINT}} run --allow-parallel-runners assembly/... order/... inventory/... payment/... iam/... shared/... platform/... --config=.golangci.yml'
 
   proto:lint:
     desc: "Проверяет .proto-файлы линтером"
@@ -147,9 +147,11 @@ tasks:
       - for mod in {{.MODULES}}; do (cd "$mod" && GOPROXY={{.GOPROXY_MOD}} go mod tidy -compat={{.GO_VERSION}}); done
 
   test:api:
-    desc: "Запускает API-тесты (без e2e build-tag)"
+    desc: "Запускает API-тесты (требует Docker: task up-all)"
+    deps: [migrate:all:up]
     cmds:
       - (cd order && go test -v -count=1 ./tests/)
+      - (cd iam && go test -v -count=1 ./tests/)
 
   test:e2e:
     desc: "Сквозные e2e-тесты order (Kafka/Redpanda)"
@@ -172,9 +174,10 @@ tasks:
       - '{{.MOCKERY}}'
 
   test:
-    desc: "Запускает unit-тесты с race-детектором (без order/tests integration)"
+    desc: "Запускает unit-тесты с race-детектором (без order/tests и iam/tests integration)"
     cmds:
       - for mod in assembly inventory payment; do echo "=== $mod ===" && (cd "$mod" && go test -v -race -count=1 ./...); done
+      - echo "=== iam ===" && (cd iam && go test -v -race -count=1 $(go list ./... | grep -v '/tests$'))
       - echo "=== order ===" && (cd order && go test -v -race -count=1 $(go list ./... | grep -v '/tests$' | grep -v '/tests/e2e'))
 
   coverage:clean:
@@ -300,10 +303,23 @@ tasks:
       - echo "[task] 🛑 Останавливаем Inventory с зависимостями"
       - docker compose --env-file ../../../inventory.env down --volumes
 
+  up-iam:
+    desc: "Поднять инфраструктуру IAM сервиса (PostgreSQL + Redis)"
+    cmds:
+      - echo '[task] 🔐 Поднимаем IAM инфраструктуру (PostgreSQL + Redis)'
+      - docker compose -f deploy/compose/iam/docker-compose.yml --env-file iam.env up --build --detach
+
+  down-iam:
+    desc: "Остановить инфраструктуру IAM сервиса"
+    cmds:
+      - echo '[task] 🛑 Останавливаем IAM инфраструктуру'
+      - docker compose -f deploy/compose/iam/docker-compose.yml --env-file iam.env down --volumes
+
   up-all:
     desc: Поднять все сервисы по очереди вместе с зависимостями
     cmds:
       - task up-core
+      - task up-iam
       - task up-inventory
       - task up-order
 
@@ -312,7 +328,15 @@ tasks:
     cmds:
       - task down-order
       - task down-inventory
+      - task down-iam
       - task down-core
+
+  migrate:all:up:
+    desc: "Применяет миграции order, inventory и iam"
+    cmds:
+      - task migrate:inventory:up
+      - task migrate:order:up
+      - task migrate:iam:up
 
   migrate:order:up:
     desc: "Применяет все миграции Order-сервиса"
@@ -353,5 +377,26 @@ tasks:
     desc: "Показывает статус миграций Inventory-сервиса"
     deps: [goose:install]
     dotenv: ['inventory.env']
+    cmds:
+      - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "$DB_URI" status'
+
+  migrate:iam:up:
+    desc: "Применяет все миграции IAM сервиса"
+    deps: [goose:install]
+    dotenv: ['iam.env']
+    cmds:
+      - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "$DB_URI" up'
+
+  migrate:iam:down:
+    desc: "Откатывает последнюю миграцию IAM сервиса"
+    deps: [goose:install]
+    dotenv: ['iam.env']
+    cmds:
+      - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "$DB_URI" down'
+
+  migrate:iam:status:
+    desc: "Показывает статус миграций IAM сервиса"
+    deps: [goose:install]
+    dotenv: ['iam.env']
     cmds:
       - '{{.GOOSE}} -dir $MIGRATIONS_DIR postgres "$DB_URI" status'

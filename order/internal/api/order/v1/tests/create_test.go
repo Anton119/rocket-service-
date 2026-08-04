@@ -28,14 +28,12 @@ func TestCreateOrder(t *testing.T) {
 
 		hullUUID   = uuid.MustParse("550e8400-e29b-41d4-a716-446655440001")
 		engineUUID = uuid.MustParse("550e8400-e29b-41d4-a716-446655440003")
-		userUUID   = uuid.MustParse("550e8400-e29b-41d4-a716-446655440010")
 		orderUUID  = uuid.MustParse("550e8400-e29b-41d4-a716-446655440099")
 		totalPrice = int64(800_000)
 
 		req = &orderv1.CreateOrderRequest{}
 	)
 
-	req.SetUserUUID(userUUID)
 	req.SetHullUUID(hullUUID)
 	req.SetEngineUUID(engineUUID)
 
@@ -49,7 +47,6 @@ func TestCreateOrder(t *testing.T) {
 			setupMock: func(svc *apimocks.OrderService) {
 				svc.EXPECT().
 					CreateOrder(mock.Anything, input.CreateOrderInput{
-						UserUUID:   userUUID,
 						HullUUID:   hullUUID,
 						EngineUUID: engineUUID,
 					}).

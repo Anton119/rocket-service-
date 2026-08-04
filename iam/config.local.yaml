@@ -1,0 +1,16 @@
+logger:
+  level: "info"
+
+grpc:
+  host: "localhost"
+  port: "50053"
+
+pg:
+  uri: "postgres://iam-service-user:iam-service-password@localhost:5434/iam-service?sslmode=disable"
+
+redis:
+  host: "localhost"
+  port: "6379"
+
+session:
+  ttl: "24h"

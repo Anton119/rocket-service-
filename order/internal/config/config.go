@@ -20,6 +20,7 @@ type Config struct {
 	PG                    pgConfig                    `yaml:"pg"`
 	InventoryClient       inventoryClientConfig       `yaml:"inventory_client"`
 	PaymentClient         paymentClientConfig         `yaml:"payment_client"`
+	IAMClient             iamClientConfig             `yaml:"iam_client"`
 }
 
 const defaultConfigPath = "config.local.yaml"

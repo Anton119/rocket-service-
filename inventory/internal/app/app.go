@@ -107,6 +107,7 @@ func (a *App) initGRPCServer(ctx context.Context) {
 			interceptor.RecoveryInterceptor(),
 			pvUnary,
 			interceptor.LoggerInterceptor(),
+			invinterceptor.AuthInterceptor(a.diContainer.AuthClient()),
 			invinterceptor.ErrorInterceptor(),
 		),
 	)

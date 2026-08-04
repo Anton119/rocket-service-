@@ -7,3 +7,6 @@ grpc:
 
 pg:
   uri: "postgres://inventory-service-user:inventory-service-password@localhost:5433/inventory-service?sslmode=disable"
+
+iam_client:
+  address: "localhost:50053"

@@ -47,3 +47,14 @@ packages:
   github.com/Anton119/rocket-service-/payment/internal/api/payment/v1:
     config:
       include-interface-regex: ".*Service"
+
+  # IAM service
+  github.com/Anton119/rocket-service-/iam/internal/api/auth/v1:
+    config:
+      include-interface-regex: ".*Service"
+  github.com/Anton119/rocket-service-/iam/internal/api/user/v1:
+    config:
+      include-interface-regex: ".*Service"
+  github.com/Anton119/rocket-service-/iam/internal/service/iam:
+    config:
+      include-interface-regex: ".*Repository"
