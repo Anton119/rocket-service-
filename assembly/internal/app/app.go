@@ -21,7 +21,7 @@ type App struct {
 }
 
 // New создаёт и инициализирует приложение.
-func New(_ context.Context) *App {
+func New() *App {
 	a := &App{}
 	a.initDeps()
 	return a

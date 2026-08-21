@@ -17,6 +17,7 @@ import (
 	"github.com/Anton119/rocket-service-/platform/pkg/closer"
 	"github.com/Anton119/rocket-service-/platform/pkg/grpc/health"
 	"github.com/Anton119/rocket-service-/platform/pkg/logger"
+	"github.com/Anton119/rocket-service-/platform/pkg/tracing"
 	"github.com/Anton119/rocket-service-/shared/pkg/grpc/interceptor"
 	paymentv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/payment/v1"
 )
@@ -70,6 +71,7 @@ func (a *App) Run() error {
 func (a *App) initDeps(ctx context.Context) {
 	for _, f := range []func(context.Context){
 		a.initLogger,
+		a.initTracing,
 		a.initDI,
 		a.initListener,
 		a.initGRPCServer,
@@ -89,6 +91,16 @@ func (a *App) initLogger(_ context.Context) {
 	})
 }
 
+func (a *App) initTracing(ctx context.Context) {
+	shutdown, err := tracing.InitTracer(ctx, config.AppConfig().TracingPlatformConfig())
+	if err != nil {
+		slog.Error("не удалось инициализировать трейсер", "error", err)
+		panic(err)
+	}
+
+	closer.Add("tracer", shutdown)
+}
+
 func (a *App) initListener(_ context.Context) {
 	lis, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", config.AppConfig().GRPC.Address())
 	if err != nil {
@@ -105,7 +117,7 @@ func (a *App) initGRPCServer(_ context.Context) {
 		panic(err)
 	}
 
-	a.grpcServer = grpc.NewServer(
+	a.grpcServer = newGRPCServer(
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			MaxConnectionIdle:     grpcMaxConnectionIdle,
 			MaxConnectionAge:      grpcMaxConnectionAge,

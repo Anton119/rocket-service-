@@ -7,8 +7,12 @@ import (
 
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
 )
+
+const tracerName = "order-service"
 
 var (
 	metricsOnce sync.Once
@@ -58,4 +62,13 @@ func recordOrderCreated(ctx context.Context, orderUUID, userUUID uuid.UUID, tota
 		slog.Int64("total_price", totalPrice),
 	)
 	ordersCreatedTotal.Add(ctx, 1)
+}
+
+func recordSpanError(span trace.Span, err error) {
+	if err == nil {
+		return
+	}
+
+	span.RecordError(err)
+	span.SetStatus(codes.Error, err.Error())
 }

@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 
 	errs "github.com/Anton119/rocket-service-/order/internal/errors"
 	"github.com/Anton119/rocket-service-/order/internal/model"
@@ -14,7 +17,16 @@ import (
 
 // PayOrder в одной транзакции: FOR UPDATE → Payment → UPDATE PAID → OrderPaid в Kafka.
 func (s *Service) PayOrder(ctx context.Context, in input.PayOrderInput) (uuid.UUID, error) {
+	ctx, span := otel.Tracer(tracerName).Start(ctx, "order.Pay")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.Stringer("order.uuid", in.OrderUUID),
+		attribute.String("order.payment_method", in.PaymentMethodStored),
+	)
+
 	if in.Method == model.PaymentMethodInvalid {
+		recordSpanError(span, errs.ErrInvalidPaymentMethod)
 		return uuid.Nil, errs.ErrInvalidPaymentMethod
 	}
 
@@ -70,8 +82,12 @@ func (s *Service) PayOrder(ctx context.Context, in input.PayOrderInput) (uuid.UU
 		})
 	})
 	if err != nil {
+		recordSpanError(span, err)
 		return uuid.Nil, err
 	}
+
+	span.SetAttributes(attribute.Stringer("order.transaction_uuid", txID))
+	span.SetStatus(codes.Ok, "")
 
 	return txID, nil
 }

@@ -8,6 +8,7 @@ import (
 	trmpgx "github.com/avito-tech/go-transaction-manager/drivers/pgxv5/v2"
 	"github.com/avito-tech/go-transaction-manager/trm/v2/manager"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -21,6 +22,14 @@ import (
 	authv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/auth/v1"
 	inventoryv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/inventory/v1"
 )
+
+func newGRPCServer(opts ...grpc.ServerOption) *grpc.Server {
+	all := append([]grpc.ServerOption{
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+	}, opts...)
+
+	return grpc.NewServer(all...)
+}
 
 type diContainer struct {
 	pgPool       *pgxpool.Pool
@@ -80,6 +89,7 @@ func (d *diContainer) IAMConn() *grpc.ClientConn {
 		conn, err := grpc.NewClient(
 			config.AppConfig().IAMClient.GRPCAddress(),
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 		)
 		if err != nil {
 			slog.Error("не удалось подключиться к IAMService", "error", err)

@@ -3,6 +3,7 @@ package order
 import (
 	"github.com/google/uuid"
 
+	errs "github.com/Anton119/rocket-service-/order/internal/errors"
 	"github.com/Anton119/rocket-service-/order/internal/model"
 	"github.com/Anton119/rocket-service-/order/internal/service/input"
 )
@@ -69,4 +70,18 @@ func indexPartsByUUID(parts []model.Part) map[string]model.Part {
 	}
 
 	return byUUID
+}
+
+func validatePartsStock(byUUID map[string]model.Part, uuids []string) error {
+	for _, id := range uuids {
+		p, ok := byUUID[id]
+		if !ok {
+			return errs.ErrPartNotFound
+		}
+		if p.StockQuantity <= 0 {
+			return errs.ErrPartOutOfStock
+		}
+	}
+
+	return nil
 }
