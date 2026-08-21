@@ -69,10 +69,17 @@ func (a *App) Run() error {
 }
 
 func (a *App) initDeps(ctx context.Context) {
+	a.initLogger()
 	a.diContainer = &diContainer{}
-	logger.Init(config.AppConfig().Logger.Level)
 	a.initListener(ctx)
 	a.initGRPCServer(ctx)
+}
+
+func (a *App) initLogger() {
+	logger.Init(config.AppConfig().LoggerPlatformConfig())
+	closer.Add("logger", func(_ context.Context) error {
+		return logger.Close()
+	})
 }
 
 func (a *App) initListener(_ context.Context) {

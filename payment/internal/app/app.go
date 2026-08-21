@@ -69,8 +69,8 @@ func (a *App) Run() error {
 
 func (a *App) initDeps(ctx context.Context) {
 	for _, f := range []func(context.Context){
-		a.initDI,
 		a.initLogger,
+		a.initDI,
 		a.initListener,
 		a.initGRPCServer,
 	} {
@@ -83,7 +83,10 @@ func (a *App) initDI(_ context.Context) {
 }
 
 func (a *App) initLogger(_ context.Context) {
-	logger.Init(config.AppConfig().Logger.Level)
+	logger.Init(config.AppConfig().LoggerPlatformConfig())
+	closer.Add("logger", func(_ context.Context) error {
+		return logger.Close()
+	})
 }
 
 func (a *App) initListener(_ context.Context) {

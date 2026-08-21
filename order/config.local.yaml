@@ -1,6 +1,10 @@
 logger:
   level: "info"
 
+otel:
+  endpoint: "localhost:4317"
+  service_name: "order-service"
+
 kafka:
   brokers:
     - "localhost:9092"

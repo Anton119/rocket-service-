@@ -10,6 +10,7 @@ import (
 	trmpgx "github.com/avito-tech/go-transaction-manager/drivers/pgxv5/v2"
 	"github.com/avito-tech/go-transaction-manager/trm/v2/manager"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -262,6 +263,7 @@ func (d *diContainer) HTTPServer(ctx context.Context) *http.Server {
 
 	httpCfg := config.AppConfig().HTTP
 	handler := ordermiddleware.AuthMiddleware(d.AuthClient(), orderServer)
+	handler = otelhttp.NewHandler(handler, "order-service")
 	srv := &http.Server{
 		Addr:              httpCfg.Address(),
 		Handler:           handler,

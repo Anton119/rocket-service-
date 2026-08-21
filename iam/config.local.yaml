@@ -1,6 +1,10 @@
 logger:
   level: "info"
 
+otel:
+  endpoint: "localhost:4317"
+  service_name: "iam-service"
+
 grpc:
   host: "localhost"
   port: "50053"

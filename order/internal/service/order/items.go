@@ -4,6 +4,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Anton119/rocket-service-/order/internal/model"
+	"github.com/Anton119/rocket-service-/order/internal/service/input"
 )
 
 type orderSlot struct {
@@ -46,4 +47,26 @@ func appendMergedItem(items []model.OrderItem, partUUID uuid.UUID, partType stri
 		PartType: partType,
 		Price:    price,
 	})
+}
+
+func partUUIDsFromInput(in input.CreateOrderInput) []string {
+	uuids := []string{in.HullUUID.String(), in.EngineUUID.String()}
+	if in.ShieldUUID != nil {
+		uuids = append(uuids, in.ShieldUUID.String())
+	}
+	if in.WeaponUUID != nil {
+		uuids = append(uuids, in.WeaponUUID.String())
+	}
+
+	return uuids
+}
+
+func indexPartsByUUID(parts []model.Part) map[string]model.Part {
+	byUUID := make(map[string]model.Part, len(parts))
+	for i := range parts {
+		p := parts[i]
+		byUUID[p.UUID] = p
+	}
+
+	return byUUID
 }

@@ -10,8 +10,10 @@ import (
 	"syscall"
 
 	"github.com/Anton119/rocket-service-/order/internal/config"
+	ordersvc "github.com/Anton119/rocket-service-/order/internal/service/order"
 	"github.com/Anton119/rocket-service-/platform/pkg/closer"
 	"github.com/Anton119/rocket-service-/platform/pkg/logger"
+	"github.com/Anton119/rocket-service-/platform/pkg/metrics"
 )
 
 // App — жизненный цикл OrderService.
@@ -63,9 +65,29 @@ func (a *App) Run() error {
 }
 
 func (a *App) initDeps(ctx context.Context) {
+	a.initLogger()
+	a.initMetrics()
 	a.diContainer = &diContainer{}
-	logger.Init(config.AppConfig().Logger.Level)
 	a.httpServer = a.diContainer.HTTPServer(ctx)
+}
+
+func (a *App) initMetrics() {
+	metrics.Init(
+		config.AppConfig().Otel.GetServiceName(),
+		metrics.WithCollectorEndpoint(config.AppConfig().Otel.CollectorEndpoint()),
+	)
+	ordersvc.InitMetrics()
+
+	closer.Add("metrics", func(_ context.Context) error {
+		return metrics.Close()
+	})
+}
+
+func (a *App) initLogger() {
+	logger.Init(config.AppConfig().LoggerPlatformConfig())
+	closer.Add("logger", func(_ context.Context) error {
+		return logger.Close()
+	})
 }
 
 func (a *App) startGracefulShutdown(ctx context.Context, cancel context.CancelFunc) {

@@ -2,6 +2,7 @@ package order
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -48,6 +49,16 @@ func (s *Service) PayOrder(ctx context.Context, in input.PayOrderInput) (uuid.UU
 		if err := s.repo.Save(txCtx, stored); err != nil {
 			return err
 		}
+
+		slog.InfoContext(txCtx, "оплата заказа",
+			slog.String("order_uuid", stored.OrderUUID.String()),
+			slog.String("user_uuid", stored.UserUUID.String()),
+			slog.String("payment_method", pm),
+			slog.Int64("total_price", stored.TotalPrice),
+		)
+
+		ordersPaidTotal.Add(txCtx, 1)
+		ordersRevenueTotal.Add(txCtx, stored.TotalPrice)
 
 		return s.orderPaid.Produce(txCtx, model.OrderPaidEvent{
 			EventUUID:       uuid.New().String(),

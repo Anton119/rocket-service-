@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,27 +27,17 @@ func (s *Service) CreateOrder(ctx context.Context, in input.CreateOrderInput) (*
 		return nil, errs.ErrUnauthorized
 	}
 
-	hull := in.HullUUID
-	engine := in.EngineUUID
-
-	uuids := []string{hull.String(), engine.String()}
-	if in.ShieldUUID != nil {
-		uuids = append(uuids, in.ShieldUUID.String())
-	}
-	if in.WeaponUUID != nil {
-		uuids = append(uuids, in.WeaponUUID.String())
-	}
+	uuids := partUUIDsFromInput(in)
 
 	parts, err := s.inv.ListParts(ctx, uuids)
 	if err != nil {
 		return nil, err
 	}
 
-	byUUID := make(map[string]model.Part, len(parts))
-	for i := range parts {
-		p := parts[i]
-		byUUID[p.UUID] = p
-	}
+	hull := in.HullUUID
+	engine := in.EngineUUID
+
+	byUUID := indexPartsByUUID(parts)
 
 	for _, id := range uuids {
 		p, ok := byUUID[id]
@@ -100,11 +91,17 @@ func (s *Service) CreateOrder(ctx context.Context, in input.CreateOrderInput) (*
 	o.WeaponUUID = in.WeaponUUID
 
 	if err := s.repo.Create(ctx, o); err != nil {
+		slog.ErrorContext(ctx, "не удалось создать заказ",
+			slog.String("error", err.Error()),
+			slog.String("user_uuid", userUUID.String()),
+		)
 		if releaseErr := s.inv.ReleaseParts(ctx, uuids); releaseErr != nil {
 			return nil, errors.Join(fmt.Errorf("сохранение заказа: %w", err), fmt.Errorf("освободить резерв: %w", releaseErr))
 		}
 		return nil, fmt.Errorf("сохранение заказа: %w", err)
 	}
+
+	recordOrderCreated(ctx, orderUUID, userUUID, totalSum)
 
 	return &input.CreateOrderResult{
 		OrderUUID:  orderUUID,
