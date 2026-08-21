@@ -13,6 +13,7 @@ var appConfig *Config
 // Config — корневая конфигурация IAMService.
 type Config struct {
 	Logger  loggerConfig  `yaml:"logger"`
+	Otel    otelConfig    `yaml:"otel"`
 	GRPC    grpcConfig    `yaml:"grpc"`
 	PG      pgConfig      `yaml:"pg"`
 	Redis   redisConfig   `yaml:"redis"`
@@ -52,4 +53,9 @@ func MustLoad(path string) {
 // AppConfig возвращает загруженный конфиг.
 func AppConfig() *Config {
 	return appConfig
+}
+
+// OTel возвращает конфигурацию observability.
+func (c *Config) OTel() OTelConfig {
+	return c.Otel
 }

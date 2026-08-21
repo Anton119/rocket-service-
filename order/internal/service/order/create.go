@@ -2,11 +2,12 @@ package order
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 
 	errs "github.com/Anton119/rocket-service-/order/internal/errors"
 	"github.com/Anton119/rocket-service-/order/internal/model"
@@ -15,7 +16,20 @@ import (
 )
 
 // CreateOrder проверяет наличие деталей и создаёт заказ.
-func (s *Service) CreateOrder(ctx context.Context, in input.CreateOrderInput) (*input.CreateOrderResult, error) {
+func (s *Service) CreateOrder(ctx context.Context, in input.CreateOrderInput) (result *input.CreateOrderResult, err error) {
+	ctx, span := otel.Tracer(tracerName).Start(ctx, "order.Create")
+	defer func() {
+		if err != nil {
+			recordSpanError(span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.Stringer("order.hull_uuid", in.HullUUID),
+		attribute.Stringer("order.engine_uuid", in.EngineUUID),
+	)
+
 	userUUIDStr, ok := auth.UserUUIDFromContext(ctx)
 	if !ok || userUUIDStr == "" {
 		return nil, errs.ErrUnauthorized
@@ -26,36 +40,20 @@ func (s *Service) CreateOrder(ctx context.Context, in input.CreateOrderInput) (*
 		return nil, errs.ErrUnauthorized
 	}
 
-	hull := in.HullUUID
-	engine := in.EngineUUID
-
-	uuids := []string{hull.String(), engine.String()}
-	if in.ShieldUUID != nil {
-		uuids = append(uuids, in.ShieldUUID.String())
-	}
-	if in.WeaponUUID != nil {
-		uuids = append(uuids, in.WeaponUUID.String())
-	}
+	uuids := partUUIDsFromInput(in)
 
 	parts, err := s.inv.ListParts(ctx, uuids)
 	if err != nil {
 		return nil, err
 	}
 
-	byUUID := make(map[string]model.Part, len(parts))
-	for i := range parts {
-		p := parts[i]
-		byUUID[p.UUID] = p
-	}
+	hull := in.HullUUID
+	engine := in.EngineUUID
 
-	for _, id := range uuids {
-		p, ok := byUUID[id]
-		if !ok {
-			return nil, errs.ErrPartNotFound
-		}
-		if p.StockQuantity <= 0 {
-			return nil, errs.ErrPartOutOfStock
-		}
+	byUUID := indexPartsByUUID(parts)
+
+	if err := validatePartsStock(byUUID, uuids); err != nil {
+		return nil, err
 	}
 
 	if err := s.inv.ReserveParts(ctx, uuids); err != nil {
@@ -99,12 +97,18 @@ func (s *Service) CreateOrder(ctx context.Context, in input.CreateOrderInput) (*
 	o.ShieldUUID = in.ShieldUUID
 	o.WeaponUUID = in.WeaponUUID
 
-	if err := s.repo.Create(ctx, o); err != nil {
-		if releaseErr := s.inv.ReleaseParts(ctx, uuids); releaseErr != nil {
-			return nil, errors.Join(fmt.Errorf("сохранение заказа: %w", err), fmt.Errorf("освободить резерв: %w", releaseErr))
-		}
-		return nil, fmt.Errorf("сохранение заказа: %w", err)
+	if err := s.persistOrder(ctx, o, uuids, userUUID); err != nil {
+		return nil, err
 	}
+
+	recordOrderCreated(ctx, orderUUID, userUUID, totalSum)
+
+	span.SetAttributes(
+		attribute.Stringer("order.uuid", orderUUID),
+		attribute.Int("order.items_count", len(items)),
+		attribute.Int64("order.total_price", totalSum),
+	)
+	span.SetStatus(codes.Ok, "")
 
 	return &input.CreateOrderResult{
 		OrderUUID:  orderUUID,

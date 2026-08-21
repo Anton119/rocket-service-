@@ -29,6 +29,7 @@ import (
 	ordersvc "github.com/Anton119/rocket-service-/order/internal/service/order"
 	"github.com/Anton119/rocket-service-/order/pkg/app"
 	"github.com/Anton119/rocket-service-/order/tests/testutil"
+	"github.com/Anton119/rocket-service-/platform/pkg/metrics"
 	"github.com/Anton119/rocket-service-/shared/pkg/grpc/interceptor"
 	inventoryv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/inventory/v1"
 	paymentv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/payment/v1"
@@ -117,6 +118,9 @@ func resetInventoryStock(ctx context.Context) {
 
 // TestMain запускает все сервисы перед тестами и останавливает после.
 func TestMain(m *testing.M) {
+	metrics.Init("order-service-test")
+	ordersvc.InitMetrics()
+
 	initTestDBEnv()
 
 	ctx := context.Background()

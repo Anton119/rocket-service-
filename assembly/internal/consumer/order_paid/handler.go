@@ -27,10 +27,10 @@ func (s *Service) OrderPaidHandler(ctx context.Context, msg kafka.Message) error
 		return nil
 	}
 
-	slog.InfoContext(ctx, "получен OrderPaid, начинаем сборку",
-		"order_uuid", event.OrderUUID,
-		"user_uuid", event.UserUUID,
-		"transaction_uuid", event.TransactionUUID,
+	slog.InfoContext(ctx, "начинаем сборку корабля",
+		slog.String("order_uuid", event.OrderUUID),
+		slog.Int64("offset", msg.Offset),
+		slog.Int("partition", int(msg.Partition)),
 	)
 
 	assembled, err := s.assembler.Assemble(ctx, event)

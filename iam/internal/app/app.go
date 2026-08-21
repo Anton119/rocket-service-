@@ -17,6 +17,7 @@ import (
 	iaminterceptor "github.com/Anton119/rocket-service-/iam/internal/interceptor"
 	"github.com/Anton119/rocket-service-/platform/pkg/closer"
 	"github.com/Anton119/rocket-service-/platform/pkg/logger"
+	"github.com/Anton119/rocket-service-/platform/pkg/tracing"
 	"github.com/Anton119/rocket-service-/shared/pkg/grpc/interceptor"
 	authv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/auth/v1"
 	userv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/user/v1"
@@ -70,10 +71,28 @@ func (a *App) Run() error {
 }
 
 func (a *App) initDeps(ctx context.Context) {
+	a.initLogger()
+	a.initTracing(ctx)
 	a.diContainer = &diContainer{}
-	logger.Init(config.AppConfig().Logger.Level)
 	a.initListener(ctx)
 	a.initGRPCServer(ctx)
+}
+
+func (a *App) initTracing(ctx context.Context) {
+	shutdown, err := tracing.InitTracer(ctx, config.AppConfig().TracingPlatformConfig())
+	if err != nil {
+		slog.Error("не удалось инициализировать трейсер", "error", err)
+		panic(err)
+	}
+
+	closer.Add("tracer", shutdown)
+}
+
+func (a *App) initLogger() {
+	logger.Init(config.AppConfig().LoggerPlatformConfig())
+	closer.Add("logger", func(_ context.Context) error {
+		return logger.Close()
+	})
 }
 
 func (a *App) initListener(_ context.Context) {
@@ -92,7 +111,7 @@ func (a *App) initGRPCServer(ctx context.Context) {
 		panic(err)
 	}
 
-	a.grpcServer = grpc.NewServer(
+	a.grpcServer = newGRPCServer(
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			MaxConnectionIdle:     grpcMaxConnectionIdle,
 			MaxConnectionAge:      grpcMaxConnectionAge,

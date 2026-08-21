@@ -7,6 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"google.golang.org/grpc"
 
 	authapi "github.com/Anton119/rocket-service-/iam/internal/api/auth/v1"
 	userapi "github.com/Anton119/rocket-service-/iam/internal/api/user/v1"
@@ -19,6 +21,14 @@ import (
 	authv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/auth/v1"
 	userv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/user/v1"
 )
+
+func newGRPCServer(opts ...grpc.ServerOption) *grpc.Server {
+	all := append([]grpc.ServerOption{
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+	}, opts...)
+
+	return grpc.NewServer(all...)
+}
 
 type diContainer struct {
 	pgPool  *pgxpool.Pool

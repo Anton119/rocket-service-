@@ -21,7 +21,7 @@ type App struct {
 }
 
 // New создаёт и инициализирует приложение.
-func New(_ context.Context) *App {
+func New() *App {
 	a := &App{}
 	a.initDeps()
 	return a
@@ -50,8 +50,15 @@ func (a *App) Run() error {
 }
 
 func (a *App) initDeps() {
+	a.initLogger()
 	a.diContainer = &diContainer{}
-	logger.Init(config.AppConfig().Logger.Level)
+}
+
+func (a *App) initLogger() {
+	logger.Init(config.AppConfig().LoggerPlatformConfig())
+	closer.Add("logger", func(_ context.Context) error {
+		return logger.Close()
+	})
 }
 
 func (a *App) startGracefulShutdown(ctx context.Context, cancel context.CancelFunc) {

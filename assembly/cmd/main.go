@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"log/slog"
 	"os"
 
@@ -17,7 +16,7 @@ func main() {
 
 	config.MustLoad(config.ResolveConfigPath())
 
-	application := app.New(context.Background())
+	application := app.New()
 
 	slog.Info("запуск AssemblyService",
 		"order_paid_topic", config.AppConfig().OrderPaidConsumer.TopicName(),

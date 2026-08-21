@@ -13,6 +13,7 @@ var appConfig *Config
 // Config — корневая конфигурация OrderService.
 type Config struct {
 	Logger                loggerConfig                `yaml:"logger"`
+	Otel                  otelConfig                  `yaml:"otel"`
 	Kafka                 kafkaConfig                 `yaml:"kafka"`
 	OrderPaidProducer     orderPaidProducerConfig     `yaml:"order_paid_producer"`
 	ShipAssembledConsumer shipAssembledConsumerConfig `yaml:"ship_assembled_consumer"`
@@ -56,4 +57,9 @@ func MustLoad(path string) {
 // AppConfig возвращает загруженный конфиг.
 func AppConfig() *Config {
 	return appConfig
+}
+
+// OTel возвращает конфигурацию observability.
+func (c *Config) OTel() OTelConfig {
+	return c.Otel
 }

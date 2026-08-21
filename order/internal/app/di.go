@@ -10,6 +10,8 @@ import (
 	trmpgx "github.com/avito-tech/go-transaction-manager/drivers/pgxv5/v2"
 	"github.com/avito-tech/go-transaction-manager/trm/v2/manager"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -107,6 +109,7 @@ func (d *diContainer) InventoryConn() *grpc.ClientConn {
 		conn, err := grpc.NewClient(
 			config.AppConfig().InventoryClient.GRPCAddress(),
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 			grpc.WithUnaryInterceptor(orderinterceptor.SessionForwarder()),
 		)
 		if err != nil {
@@ -126,6 +129,7 @@ func (d *diContainer) PaymentConn() *grpc.ClientConn {
 		conn, err := grpc.NewClient(
 			config.AppConfig().PaymentClient.GRPCAddress(),
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 		)
 		if err != nil {
 			slog.Error("не удалось подключиться к PaymentService", "error", err)
@@ -144,6 +148,7 @@ func (d *diContainer) IAMConn() *grpc.ClientConn {
 		conn, err := grpc.NewClient(
 			config.AppConfig().IAMClient.GRPCAddress(),
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 		)
 		if err != nil {
 			slog.Error("не удалось подключиться к IAMService", "error", err)
@@ -262,6 +267,7 @@ func (d *diContainer) HTTPServer(ctx context.Context) *http.Server {
 
 	httpCfg := config.AppConfig().HTTP
 	handler := ordermiddleware.AuthMiddleware(d.AuthClient(), orderServer)
+	handler = otelhttp.NewHandler(handler, "order-service")
 	srv := &http.Server{
 		Addr:              httpCfg.Address(),
 		Handler:           handler,
