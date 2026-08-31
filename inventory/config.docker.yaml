@@ -1,0 +1,18 @@
+# Конфигурация InventoryService для Docker.
+# Поля соответствуют inventory/internal/config.
+logger:
+  level: "info"
+
+otel:
+  endpoint: "otel-collector:4317"
+  service_name: "inventory-service"
+
+grpc:
+  host: "0.0.0.0"
+  port: "50051"
+
+pg:
+  uri: "postgres://inventory-service-user:inventory-service-password@postgres-inventory:5432/inventory-service?sslmode=disable"
+
+iam_client:
+  address: "iam-service:50053"

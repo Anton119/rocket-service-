@@ -1,0 +1,22 @@
+# Конфигурация IAMService для Docker.
+# Поля соответствуют iam/internal/config.
+logger:
+  level: "info"
+
+otel:
+  endpoint: "otel-collector:4317"
+  service_name: "iam-service"
+
+grpc:
+  host: "0.0.0.0"
+  port: "50053"
+
+pg:
+  uri: "postgres://iam-service-user:iam-service-password@postgres-iam:5432/iam-service?sslmode=disable"
+
+redis:
+  host: "redis-iam"
+  port: "6379"
+
+session:
+  ttl: "24h"

@@ -4,8 +4,11 @@ go 1.26.0
 
 require (
 	github.com/IBM/sarama v1.47.0
+	github.com/alicebob/miniredis/v2 v2.38.0
+	github.com/go-redis/redis_rate/v10 v10.0.1
 	github.com/redis/go-redis/v9 v9.18.0
 	github.com/samber/slog-multi v1.8.0
+	github.com/stretchr/testify v1.11.1
 	go.opentelemetry.io/contrib/bridges/otelslog v0.20.0
 	go.opentelemetry.io/otel v1.45.0
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.21.0
@@ -41,6 +44,7 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9 // indirect
 	github.com/samber/lo v1.53.0 // indirect
 	github.com/samber/slog-common v0.21.0 // indirect
+	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.45.0 // indirect
 	go.opentelemetry.io/otel/log v0.21.0 // indirect
@@ -54,4 +58,5 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20260803160001-6ac0973c030d // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260803160001-6ac0973c030d // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

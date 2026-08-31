@@ -1,0 +1,40 @@
+# Конфигурация OrderService для Docker.
+# Поля соответствуют order/internal/config.
+logger:
+  level: "info"
+
+otel:
+  endpoint: "otel-collector:4317"
+  service_name: "order-service"
+
+kafka:
+  brokers:
+    - "kafka:29092"
+
+order_paid_producer:
+  topic: "order.paid"
+
+ship_assembled_consumer:
+  topic: "assembly.ship-assembled"
+  group_id: "order-service"
+
+http:
+  host: "0.0.0.0"
+  port: "8080"
+
+pg:
+  uri: "postgres://order-service-user:order-service-password@postgres-order:5432/order-service?sslmode=disable"
+
+inventory_client:
+  address: "inventory-service:50051"
+
+payment_client:
+  address: "payment-service:50052"
+
+iam_client:
+  address: "iam-service:50053"
+
+rate_limit:
+  redis_address: "redis-ratelimit:6379"
+  rate: 100
+  burst: 200

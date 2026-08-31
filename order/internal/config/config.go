@@ -22,6 +22,7 @@ type Config struct {
 	InventoryClient       inventoryClientConfig       `yaml:"inventory_client"`
 	PaymentClient         paymentClientConfig         `yaml:"payment_client"`
 	IAMClient             iamClientConfig             `yaml:"iam_client"`
+	RateLimitSection      rateLimitConfig             `yaml:"rate_limit"`
 }
 
 const defaultConfigPath = "config.local.yaml"

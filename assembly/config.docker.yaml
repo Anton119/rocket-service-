@@ -1,0 +1,23 @@
+# Конфигурация AssemblyService для Docker.
+# Поля соответствуют assembly/internal/config.
+logger:
+  level: "info"
+
+otel:
+  endpoint: "otel-collector:4317"
+  service_name: "assembly-service"
+
+kafka:
+  brokers:
+    - "kafka:29092"
+
+order_paid_consumer:
+  topic: "order.paid"
+  group_id: "assembly-service"
+
+ship_assembled_producer:
+  topic: "assembly.ship-assembled"
+
+assembler:
+  min_build_time_sec: 5
+  max_build_time_sec: 15

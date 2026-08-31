@@ -5,11 +5,14 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/IBM/sarama"
 	trmpgx "github.com/avito-tech/go-transaction-manager/drivers/pgxv5/v2"
 	"github.com/avito-tech/go-transaction-manager/trm/v2/manager"
+	"github.com/go-redis/redis_rate/v10"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"google.golang.org/grpc"
@@ -30,6 +33,7 @@ import (
 	wrappedKafkaConsumer "github.com/Anton119/rocket-service-/platform/pkg/kafka/consumer"
 	wrappedKafkaProducer "github.com/Anton119/rocket-service-/platform/pkg/kafka/producer"
 	kafkaMiddleware "github.com/Anton119/rocket-service-/platform/pkg/middleware/kafka"
+	"github.com/Anton119/rocket-service-/platform/pkg/ratelimit"
 	authv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/auth/v1"
 	inventoryv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/inventory/v1"
 	paymentv1 "github.com/Anton119/rocket-service-/shared/pkg/proto/payment/v1"
@@ -58,6 +62,8 @@ type diContainer struct {
 	orderPaidProducer ordersvc.OrderPaidProducer
 	orderService      *ordersvc.Service
 	assemblyConsumer  ConsumerService
+
+	rateLimiter *redis_rate.Limiter
 }
 
 func (d *diContainer) PGPool(ctx context.Context) *pgxpool.Pool {
@@ -257,6 +263,25 @@ func (d *diContainer) AssemblyConsumerService() ConsumerService {
 	return d.assemblyConsumer
 }
 
+func (d *diContainer) RateLimiter() *redis_rate.Limiter {
+	if d.rateLimiter == nil {
+		rlCfg := config.AppConfig().RateLimit()
+		rdb := redis.NewClient(&redis.Options{
+			Addr: rlCfg.Address(),
+		})
+		closer.Add("rate limit Redis", func(_ context.Context) error {
+			return rdb.Close()
+		})
+		d.rateLimiter = redis_rate.NewLimiter(rdb)
+		slog.Info("rate limiter инициализирован",
+			"redis", rlCfg.Address(),
+			"rate", rlCfg.Rate(),
+			"burst", rlCfg.Burst(),
+		)
+	}
+	return d.rateLimiter
+}
+
 func (d *diContainer) HTTPServer(ctx context.Context) *http.Server {
 	api := orderapi.NewAPI(d.OrderService(ctx))
 	orderServer, err := orderapi.NewServer(api)
@@ -266,7 +291,14 @@ func (d *diContainer) HTTPServer(ctx context.Context) *http.Server {
 	}
 
 	httpCfg := config.AppConfig().HTTP
+	rlCfg := config.AppConfig().RateLimit()
 	handler := ordermiddleware.AuthMiddleware(d.AuthClient(), orderServer)
+	handler = ratelimit.HTTPMiddleware(d.RateLimiter(), redis_rate.Limit{
+		Rate:   rlCfg.Rate(),
+		Burst:  rlCfg.Burst(),
+		Period: time.Second,
+	})(handler)
+	// otelhttp снаружи, чтобы 429 от rate limiter попадали в HTTP-метрики Grafana.
 	handler = otelhttp.NewHandler(handler, "order-service")
 	srv := &http.Server{
 		Addr:              httpCfg.Address(),
