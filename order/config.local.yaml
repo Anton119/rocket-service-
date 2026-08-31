@@ -31,3 +31,8 @@ payment_client:
 
 iam_client:
   address: "localhost:50053"
+
+rate_limit:
+  redis_address: "localhost:6379"
+  rate: 100
+  burst: 200

@@ -18,6 +18,7 @@ import (
 	"cmp"
 	"context"
 	"log/slog"
+	"os"
 	"sync"
 	"time"
 
@@ -75,6 +76,7 @@ func Init(serviceName string, opts ...Option) {
 		res, err := resource.New(ctx,
 			resource.WithAttributes(
 				semconv.ServiceName(serviceName),
+				semconv.ServiceInstanceID(cmp.Or(os.Getenv("HOSTNAME"), "local")),
 				attribute.String("deployment.environment", "dev"),
 			),
 		)
